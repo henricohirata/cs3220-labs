@@ -1,6 +1,5 @@
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
-// dummy implementation, please replace with your own
 module majority3 (
     input x,
     input y,
@@ -8,6 +7,6 @@ module majority3 (
     output vote
 );
 
-    assign vote = 1'b0;
+    assign vote = (x & y) | (y & z) | (x & z);
 
 endmodule
