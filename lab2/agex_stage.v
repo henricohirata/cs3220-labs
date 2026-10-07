@@ -48,7 +48,20 @@ module AGEX_STAGE(
   reg [`DBITS-1:0] br_target_AGEX;
   wire br_mispred_AGEX;
 
-  // TODO Task 3: update BHR and PHT when branches resolve.
+  wire [`PHT_BITS-1:0] pht_idx_AGEX;
+  wire pred_dir_AGEX;
+  wire bp_update_AGEX;
+  wire br_taken_AGEX;
+
+  
+  wire [`DBITS-1:0] pred_pc_AGEX;
+  wire [`DBITS-1:0] btb_wr_target_AGEX;
+
+
+  `UNUSED_VAR(pred_dir_AGEX)
+
+  assign bp_update_AGEX = is_br_AGEX || is_jmp_AGEX;
+  assign br_taken_AGEX  = is_jmp_AGEX || (is_br_AGEX && br_cond_AGEX);
 
   
   // Calculate branch condition
@@ -112,25 +125,36 @@ module AGEX_STAGE(
     else if (op_I_AGEX == `JR_I)
       br_target_AGEX = regval1_AGEX; 
     else if (op_I_AGEX == `JALR_I)
-      br_target_AGEX = (regval1_AGEX + sxt_imm_AGEX) & 32'hfffffffe; 
+      br_target_AGEX = (regval1_AGEX + sxt_imm_AGEX) & 32'hfffffffe;
     else if (is_br_AGEX && br_cond_AGEX) 
       br_target_AGEX = PC_AGEX + sxt_imm_AGEX; 
     else 
-      br_target_AGEX = pcplus_AGEX;        
+      br_target_AGEX = pcplus_AGEX;
   end
 
-  // Task 5: Finish the logic for the next-PC prediction check.
-  //Hint: how you wire it out with the logic in FE stage?
+
 
   assign br_mispred_AGEX = ((is_br_AGEX || is_jmp_AGEX) 
-                         && (br_target_AGEX != pcplus_AGEX)) ? 1 : 0;
+                         && (br_target_AGEX != pred_pc_AGEX)) ? 1 : 0;
 
+  assign btb_wr_target_AGEX = is_br_AGEX ? (PC_AGEX + sxt_imm_AGEX) : br_target_AGEX;
 
-  // TODO Task 6: Branch counter for the accuracy test
   reg [31:0] branch_count /* verilator public */;
   reg [31:0] correct_branch_count /* verilator public */;
-  
 
+  always @(posedge clk) begin
+    if (reset) begin
+      branch_count <= 32'd0;
+      correct_branch_count <= 32'd0;
+    end
+    else if (bp_update_AGEX) begin
+      branch_count <= branch_count + 32'd1;
+      if (!br_mispred_AGEX) begin
+        correct_branch_count <= correct_branch_count + 32'd1;
+      end
+    end
+  end
+  
 
   // Below are the signal transfer between agexand prefetch
     assign  {                     
@@ -143,16 +167,18 @@ module AGEX_STAGE(
                                           // more signals might need
                                   regval1_AGEX,
                                   regval2_AGEX,
-                                  sxt_imm_AGEX,                                
+                                  sxt_imm_AGEX,
                                   is_br_AGEX,
                                   is_jmp_AGEX,
                                   rd_mem_AGEX,
                                   wr_mem_AGEX,
                                   wr_reg_AGEX,
-                                  wregno_AGEX
+                                  wregno_AGEX,
+                                  pht_idx_AGEX,
+                                  pred_dir_AGEX,
+                                  pred_pc_AGEX
                                   } = from_DE_latch; 
-    
- 
+
   assign AGEX_latch_contents = {
                                 valid_AGEX,
                                 inst_AGEX,
@@ -182,7 +208,12 @@ module AGEX_STAGE(
   // forward signals to FE stage
   assign from_AGEX_to_FE = { 
     br_mispred_AGEX,
-    br_target_AGEX
+    br_target_AGEX,
+    bp_update_AGEX,
+    br_taken_AGEX,
+    pht_idx_AGEX,
+    PC_AGEX,
+    btb_wr_target_AGEX
   };
 
   // forward signals to DE stage

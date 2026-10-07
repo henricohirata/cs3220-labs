@@ -1,4 +1,4 @@
- `include "define.vh" 
+`include "define.vh"
 
 
 module FE_STAGE(
@@ -34,10 +34,10 @@ module FE_STAGE(
   /* pipeline latch */ 
   reg [`FE_latch_WIDTH-1:0] FE_latch;  // FE latch 
   wire valid_FE;
-   
+
   `UNUSED_VAR(valid_FE)
   reg [`DBITS-1:0] PC_FE_latch; // PC latch in the FE stage   // you could use a part of FE_latch as a PC latch as well 
-  
+
   reg [`DBITS-1:0] inst_count_FE; /* for debugging purpose */ 
   
   wire [`DBITS-1:0] inst_count_AGEX; /* for debugging purpose. resent the instruction counter */ 
@@ -46,8 +46,58 @@ module FE_STAGE(
   wire [`DBITS-1:0] pcplus_FE;  // pc plus value in the FE stage 
   wire stall_pipe_FE; // signal to indicate when a front-end needs to be stall
 
-  // TODO Task 3: connect BHR and PHT to the pipeline.
+  wire [`BHR_WIDTH-1:0] bhr_FE;
+  wire [`PHT_BITS-1:0]  pht_idx_FE;
+  wire                  pred_dir_FE;
+
+  wire                  bp_update_AGEX;
+  wire                  br_taken_AGEX;
+  wire [`PHT_BITS-1:0]  pht_idx_AGEX;
+
+
+  wire [`DBITS-1:0] btb_target_FE;
+  wire btb_hit_FE;
+  wire pred_taken_FE;
+  wire [`DBITS-1:0] pred_pc_FE;
   
+  wire [`DBITS-1:0] btb_wr_pc_AGEX;
+  wire [`DBITS-1:0] btb_wr_target_AGEX;
+
+  assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2] ^ bhr_FE;
+
+  BHR my_BHR (
+    .clk(clk),
+    .reset(reset),
+    .wr_ena(bp_update_AGEX),
+    .wr_data({{(`DBITS-1){1'b0}}, br_taken_AGEX}),
+    .out(bhr_FE)
+  );
+
+  PHT my_PHT (
+    .clk(clk),
+    .reset(reset),
+    .rd_sel(pht_idx_FE),
+    .out(pred_dir_FE),
+    .wr_sel(pht_idx_AGEX),
+    .wr_data(br_taken_AGEX),
+    .wr_ena(bp_update_AGEX)
+  );
+
+  BTB my_BTB (
+    .clk(clk),
+    .reset(reset),
+    .rd_ena(1'b1),
+    .rd_sel(PC_FE_latch),
+    .out_data(btb_target_FE),
+    .outs_valid(btb_hit_FE),
+    .wr_ena(bp_update_AGEX),
+    .wr_sel(btb_wr_pc_AGEX),
+    .wr_data(btb_wr_target_AGEX)
+  );
+
+  assign pred_taken_FE = btb_hit_FE && pred_dir_FE;
+  assign pred_pc_FE = pred_taken_FE ? btb_target_FE : pcplus_FE;
+
   wire [`FE_latch_WIDTH-1:0] FE_latch_contents;  // the signals that will be FE latch contents 
   
   // reading instruction from imem 
@@ -60,20 +110,16 @@ module FE_STAGE(
   // This is the value of "incremented PC", computed in the FE stage
   assign pcplus_FE = PC_FE_latch + `INSTSIZE;
    
-   // the order of latch contents should be matched in the decode stage when we extract the contents. 
   assign FE_latch_contents = {
                                 valid_FE, 
                                 inst_FE, 
                                 PC_FE_latch, 
-                                pcplus_FE, // please feel free to add more signals such as valid bits etc. 
-                                inst_count_FE
-                                // if you add more bits here, please increase the width of latch in VX_define.vh 
-
-                                };
-                            
-
-
-
+                                pcplus_FE,
+                                inst_count_FE,
+                                pht_idx_FE,
+                                pred_dir_FE,
+                                pred_pc_FE
+                              };
 
   // **TODO: Complete the rest of the pipeline 
   //assign stall_pipe_FE = 1;   // you need
@@ -86,7 +132,12 @@ module FE_STAGE(
 
   assign {
     br_mispred_AGEX,
-    br_target_AGEX
+    br_target_AGEX,
+    bp_update_AGEX,
+    br_taken_AGEX,
+    pht_idx_AGEX,
+    btb_wr_pc_AGEX,
+    btb_wr_target_AGEX
   } = from_AGEX_to_FE;
 
   always @ (posedge clk) begin
@@ -100,7 +151,7 @@ module FE_STAGE(
     else if (stall_pipe_FE) 
       PC_FE_latch <= PC_FE_latch; 
     else begin 
-      PC_FE_latch <= pcplus_FE;
+      PC_FE_latch <= pred_pc_FE;
       inst_count_FE <= inst_count_FE + 1; 
       end 
   end
@@ -119,36 +170,62 @@ module FE_STAGE(
     end  
   end
 
-
-
 endmodule
 
-// Task 1: Branch history pattern logic
+
 module BHR (
   input wire clk,
   input wire reset,
   input wire wr_ena,
-  input wire wr_data,
+  input wire [`DBITS-1:0] wr_data,
   output wire [`BHR_WIDTH-1:0] out
 );
-//TODO: Complete the BHR logic
+
+  reg [`BHR_WIDTH-1:0] history;
+
+  assign out = history;
+
+  always @ (posedge clk) begin
+    if (reset)
+      history <= {`BHR_WIDTH{1'b0}};
+    else if (wr_ena)
+      history <= {history[`BHR_WIDTH-2:0], wr_data[0]};
+  end
+
 endmodule
 
-// Task 2: Prediction History table register pattern
-//You should define the counter in each PHT pattern
+
 module PHT (
   input wire clk,
   input wire reset,
-  input wire [`PHT_BITS-1:0] rd_sel, 
+  input wire [`PHT_BITS-1:0] rd_sel,
   output wire out,
   input wire [`PHT_BITS-1:0] wr_sel,
   input wire wr_data,
   input wire wr_ena
 );
-//TODO: Complete the PHT logic
+
+  reg [`counter_WIDTH-1:0] counters [`PHT_WIDTH-1:0];
+  assign out = counters[rd_sel][`counter_WIDTH-1];
+
+  always @ (posedge clk) begin
+    if (reset) begin
+      for (integer i = 0; i < `PHT_WIDTH; i = i + 1)
+        counters[i] <= `counter_WIDTH'b01;
+    end
+    else if (wr_ena) begin
+
+      if (wr_data && (counters[wr_sel] != {`counter_WIDTH{1'b1}})) begin
+        counters[wr_sel] <= counters[wr_sel] + 1'b1;
+      end
+      else if (!wr_data && (counters[wr_sel] != {`counter_WIDTH{1'b0}})) begin
+        counters[wr_sel] <= counters[wr_sel] - 1'b1;
+      end
+
+    end
+  end
 endmodule
-// Task 4: Branch Target Buffer
-//Hint: what is the signal need for BHT update?
+
 
 module BTB (
   input wire clk,
@@ -160,7 +237,31 @@ module BTB (
   input wire wr_ena,
   input wire [`DBITS-1:0] wr_sel,
   input wire [`DBITS-1:0] wr_data
-); 
-//TODO: complete the BTB logic and its update
+);
+
+  reg valid_bits [`BTB_WIDTH-1:0];
+  reg [`BTB_TAG_BITS-1:0] tags [`BTB_WIDTH-1:0];
+  reg [`DBITS-1:0] targets [`BTB_WIDTH-1:0];
+
+  wire [`BTB_BITS-1:0] rd_idx = rd_sel[`BTB_BITS+1:2];
+  wire [`BTB_TAG_BITS-1:0] rd_tag = rd_sel[`DBITS-1:`BTB_BITS+2];
+  wire [`BTB_BITS-1:0] wr_idx = wr_sel[`BTB_BITS+1:2];
+  wire [`BTB_TAG_BITS-1:0] wr_tag = wr_sel[`DBITS-1:`BTB_BITS+2];
+
+  assign outs_valid = rd_ena && valid_bits[rd_idx] && (tags[rd_idx] == rd_tag);
+  assign out_data = targets[rd_idx];
+
+  always @(posedge clk) begin
+    if (reset) begin
+      for (integer i = 0; i < `BTB_WIDTH; i=i+1) begin
+        valid_bits[i] <= 1'b0;
+      end
+    end
+    else if (wr_ena) begin
+      valid_bits[wr_idx] <= 1'b1;
+      tags[wr_idx] <= wr_tag;
+      targets[wr_idx] <= wr_data;
+    end
+  end
 
 endmodule

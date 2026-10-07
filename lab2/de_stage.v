@@ -28,10 +28,14 @@ module DE_STAGE(
   wire [`DBITS-1:0] PC_DE;
   wire [`DBITS-1:0] pcplus_DE; 
   wire [`DBITS-1:0] inst_count_DE; 
-  // TODO Task 3
+
+  wire [`PHT_BITS-1:0] pht_idx_DE;
+  wire pred_dir_DE;
+  wire [`DBITS-1:0] pred_pc_DE;
+
   wire[`DE_latch_WIDTH-1:0] DE_latch_contents; 
 
- 
+
 
 // extracting a part of opcode 
   wire [2:0] F3_DE; 
@@ -340,8 +344,11 @@ end
             inst_DE,
             PC_DE, 
             pcplus_DE,
-            inst_count_DE
-            }  = from_FE_latch;  
+            inst_count_DE,
+            pht_idx_DE,
+            pred_dir_DE,
+            pred_pc_DE
+          }  = from_FE_latch;
 
 
 
@@ -354,7 +361,6 @@ end
                                   pcplus_DE,
                                   op_I_DE,
                                   inst_count_DE,
-                                  // more signals might need
                                   rs1_val_DE,
                                   rs2_val_DE,    
                                   sxt_imm_DE,
@@ -363,7 +369,10 @@ end
                                   rd_mem_DE,
                                   wr_mem_DE,
                                   wr_reg_DE,
-                                  rd_DE
+                                  rd_DE,
+                                  pht_idx_DE,
+                                  pred_dir_DE,
+                                  pred_pc_DE
                                   }; 
 
   always @ (negedge clk) begin 
