@@ -1,0 +1,3 @@
+*.log
+*.zip
+*/obj_dir/
