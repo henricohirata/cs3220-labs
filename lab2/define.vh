@@ -213,24 +213,19 @@
 
 
   `ifndef BP_BTB_BITS
-    `define BP_BTB_BITS 8
+  `define BP_BTB_BITS 8 // pipeline BTB entries = 2^BP_BTB_BITS
   `endif
 
   `ifndef BP_HASH
-    `define BP_HASH 0
+  `define BP_HASH 0 // 0: gshare (PC ^ BHR), 1: PC only, 2: gselect {PC, BHR}
   `endif
-
-  `ifndef BP_PHT_1BIT
-    `define BP_PHT_1BIT 0
-  `endif
-
-  `ifndef BP_BTB_2WAY
-    `define BP_BTB_2WAY 0
-  `endif
-
+  
   `ifndef GSEL_HIST_BITS
-    `define GSEL_HIST_BITS 4
+  `define GSEL_HIST_BITS 4 // history bits used by gselect
   `endif
+
+  // `define BP_PHT_1BIT // one-bit PHT_1BIT counters
+  // `define BP_BTB_2WAY // 16-entry two-way BTB_2WAY
 
 
   `define FE_latch_WIDTH  (1 + `INSTBITS+`DBITS+ `DBITS + `DBITS + 1 + `PHT_BITS + `DBITS)

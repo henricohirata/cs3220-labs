@@ -74,10 +74,9 @@ module FE_STAGE(
 
     end else begin : g_gshare // PC XOR BHR
       assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2] ^ `PHT_BITS'(bhr_FE);
-
+      
     end
   endgenerate
-
 
   BHR my_BHR (
     .clk(clk),
@@ -87,57 +86,53 @@ module FE_STAGE(
     .out(bhr_FE)
   );
 
-  generate
-    if (`BP_PHT_1BIT) begin : g_pht_1bit
-      PHT_1BIT my_PHT (
-        .clk(clk),
-        .reset(reset),
-        .rd_sel(pht_idx_FE),
-        .out(pred_dir_FE),
-        .wr_sel(pht_idx_AGEX),
-        .wr_data(br_taken_AGEX),
-        .wr_ena(bp_update_AGEX)
-      );
-    end else begin : g_pht_2bit
-      PHT my_PHT (
-        .clk(clk),
-        .reset(reset),
-        .rd_sel(pht_idx_FE),
-        .out(pred_dir_FE),
-        .wr_sel(pht_idx_AGEX),
-        .wr_data(br_taken_AGEX),
-        .wr_ena(bp_update_AGEX)
-      );
-    end
-  endgenerate
+  `ifdef BP_PHT_1BIT
+    PHT_1BIT my_PHT (
+      .clk(clk),
+      .reset(reset),
+      .rd_sel(pht_idx_FE),
+      .out(pred_dir_FE),
+      .wr_sel(pht_idx_AGEX),
+      .wr_data(br_taken_AGEX),
+      .wr_ena(bp_update_AGEX)
+    );
+  `else
+    PHT my_PHT (
+      .clk(clk),
+      .reset(reset),
+      .rd_sel(pht_idx_FE),
+      .out(pred_dir_FE),
+      .wr_sel(pht_idx_AGEX),
+      .wr_data(br_taken_AGEX),
+      .wr_ena(bp_update_AGEX)
+    );
+  `endif
 
-  generate
-    if (`BP_BTB_2WAY) begin : g_btb_2way
-      BTB_2WAY my_BTB (
-        .clk(clk),
-        .reset(reset),
-        .rd_ena(1'b1),
-        .rd_sel(PC_FE_latch),
-        .out_data(btb_target_FE),
-        .outs_valid(btb_hit_FE),
-        .wr_ena(bp_update_AGEX),
-        .wr_sel(btb_wr_pc_AGEX),
-        .wr_data(btb_wr_target_AGEX)
-      );
-    end else begin : g_btb_dm
-      BTB #(.IDX_BITS(`BP_BTB_BITS)) my_BTB (
-        .clk(clk),
-        .reset(reset),
-        .rd_ena(1'b1),
-        .rd_sel(PC_FE_latch),
-        .out_data(btb_target_FE),
-        .outs_valid(btb_hit_FE),
-        .wr_ena(bp_update_AGEX),
-        .wr_sel(btb_wr_pc_AGEX),
-        .wr_data(btb_wr_target_AGEX)
-      );
-    end
-  endgenerate
+  `ifdef BP_BTB_2WAY
+    BTB_2WAY my_BTB (
+      .clk(clk),
+      .reset(reset),
+      .rd_ena(1'b1),
+      .rd_sel(PC_FE_latch),
+      .out_data(btb_target_FE),
+      .outs_valid(btb_hit_FE),
+      .wr_ena(bp_update_AGEX),
+      .wr_sel(btb_wr_pc_AGEX),
+      .wr_data(btb_wr_target_AGEX)
+    );
+  `else
+    BTB #(.IDX_BITS(`BP_BTB_BITS)) my_BTB (
+      .clk(clk),
+      .reset(reset),
+      .rd_ena(1'b1),
+      .rd_sel(PC_FE_latch),
+      .out_data(btb_target_FE),
+      .outs_valid(btb_hit_FE),
+      .wr_ena(bp_update_AGEX),
+      .wr_sel(btb_wr_pc_AGEX),
+      .wr_data(btb_wr_target_AGEX)
+    );
+  `endif
 
   assign pred_taken_FE = btb_hit_FE && pred_dir_FE;
   assign pred_pc_FE = pred_taken_FE ? btb_target_FE : pcplus_FE;
@@ -268,6 +263,7 @@ module PHT (
 
     end
   end
+
 endmodule
 
 module PHT_1BIT (
@@ -291,6 +287,7 @@ module PHT_1BIT (
     else if (wr_ena)
       last_outcome[wr_sel] <= wr_data;
   end
+
 endmodule
 
 module BTB #(
@@ -334,6 +331,7 @@ module BTB #(
       targets[wr_idx] <= wr_data;
     end
   end
+
 endmodule
 
 module BTB_2WAY (
