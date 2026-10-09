@@ -97,7 +97,7 @@ module FE_STAGE(
     .wr_ena(bp_update_AGEX)
   );
 
-  BTB #(.IDX_BITS(BP_BTB_BITS)) my_BTB (
+  BTB #(.IDX_BITS(`BP_BTB_BITS)) my_BTB (
     .clk(clk),
     .reset(reset),
     .rd_ena(1'b1),
