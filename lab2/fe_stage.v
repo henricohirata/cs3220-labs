@@ -63,8 +63,6 @@ module FE_STAGE(
   wire [`DBITS-1:0] btb_wr_pc_AGEX;
   wire [`DBITS-1:0] btb_wr_target_AGEX;
 
-  assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2] ^ bhr_FE;
-
   generate
     if (`BP_HASH == 1) begin : g_bimodal // PC only
       assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2];
