@@ -65,6 +65,20 @@ module FE_STAGE(
 
   assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2] ^ bhr_FE;
 
+  generate
+    if (`BP_HASH == 1) begin : g_bimodal // PC only
+      assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2];
+
+    end else if (`BP_HASH == 2) begin : g_gselect // {PC, BHR}
+      assign pht_idx_FE = {PC_FE_latch[`PHT_BITS-`GSEL_HIST_BITS+1:2], bhr_FE[`GSEL_HIST_BITS-1:0]};
+
+    end else begin : g_gshare // PC XOR BHR
+      assign pht_idx_FE = PC_FE_latch[`PHT_BITS+1:2] ^ `PHT_BITS'(bhr_FE);
+
+    end
+  endgenerate
+
+
   BHR my_BHR (
     .clk(clk),
     .reset(reset),
@@ -83,7 +97,7 @@ module FE_STAGE(
     .wr_ena(bp_update_AGEX)
   );
 
-  BTB my_BTB (
+  BTB #(.IDX_BITS(BP_BTB_BITS)) my_BTB (
     .clk(clk),
     .reset(reset),
     .rd_ena(1'b1),
@@ -227,7 +241,9 @@ module PHT (
 endmodule
 
 
-module BTB (
+module BTB #(
+  parameter IDX_BITS = `BTB_BITS
+) (
   input wire clk,
   input wire reset,
   input wire rd_ena,
@@ -239,14 +255,17 @@ module BTB (
   input wire [`DBITS-1:0] wr_data
 );
 
-  reg valid_bits [`BTB_WIDTH-1:0];
-  reg [`BTB_TAG_BITS-1:0] tags [`BTB_WIDTH-1:0];
-  reg [`DBITS-1:0] targets [`BTB_WIDTH-1:0];
+  localparam ENTRIES  = 1 << IDX_BITS;
+  localparam TAG_BITS = `DBITS - IDX_BITS - 2;
 
-  wire [`BTB_BITS-1:0] rd_idx = rd_sel[`BTB_BITS+1:2];
-  wire [`BTB_TAG_BITS-1:0] rd_tag = rd_sel[`DBITS-1:`BTB_BITS+2];
-  wire [`BTB_BITS-1:0] wr_idx = wr_sel[`BTB_BITS+1:2];
-  wire [`BTB_TAG_BITS-1:0] wr_tag = wr_sel[`DBITS-1:`BTB_BITS+2];
+  reg valid_bits [ENTRIES-1:0];
+  reg [TAG_BITS-1:0] tags [ENTRIES-1:0];
+  reg [`DBITS-1:0] targets [ENTRIES-1:0];
+
+  wire [IDX_BITS-1:0] rd_idx = rd_sel[IDX_BITS+1:2];
+  wire [TAG_BITS-1:0] rd_tag = rd_sel[`DBITS-1:IDX_BITS+2];
+  wire [IDX_BITS-1:0] wr_idx = wr_sel[IDX_BITS+1:2];
+  wire [TAG_BITS-1:0] wr_tag = wr_sel[`DBITS-1:IDX_BITS+2];
 
   assign outs_valid = rd_ena && valid_bits[rd_idx] && (tags[rd_idx] == rd_tag);
   assign out_data = targets[rd_idx];

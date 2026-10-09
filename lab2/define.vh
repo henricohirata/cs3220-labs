@@ -212,6 +212,19 @@
   `define BTB_TAG_BITS (`DBITS - `BTB_BITS - 2)
 
 
+  `ifndef BP_BTB_BITS
+    `define BP_BTB_BITS 8 // BTB entries = 2^BP_BTB_BITS
+  `endif
+
+  `ifndef BP_HASH
+    `define BP_HASH 0 // 0: gshare (PC ^ BHR), 1: PC only, 2: gselect {PC, BHR}
+  `endif
+
+  `ifndef GSEL_HIST_BITS
+    `define GSEL_HIST_BITS 4 // history bits used by gselect
+  `endif
+
+
   `define FE_latch_WIDTH  (1 + `INSTBITS+`DBITS+ `DBITS + `DBITS + 1 + `PHT_BITS + `DBITS)
   `define DE_latch_WIDTH  (1 + `INSTBITS+`DBITS+`DBITS+ `IOPBITS + `DBITS + `DBITS + `DBITS + `DBITS + 1 + 1 + 1 + 1 + 1 + `REGNOBITS + 1 + `PHT_BITS + `DBITS)
 
