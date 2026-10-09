@@ -111,17 +111,33 @@ module FE_STAGE(
     end
   endgenerate
 
-  BTB #(.IDX_BITS(`BP_BTB_BITS)) my_BTB (
-    .clk(clk),
-    .reset(reset),
-    .rd_ena(1'b1),
-    .rd_sel(PC_FE_latch),
-    .out_data(btb_target_FE),
-    .outs_valid(btb_hit_FE),
-    .wr_ena(bp_update_AGEX),
-    .wr_sel(btb_wr_pc_AGEX),
-    .wr_data(btb_wr_target_AGEX)
-  );
+  generate
+    if (`BP_BTB_2WAY) begin : g_btb_2way
+      BTB_2WAY my_BTB (
+        .clk(clk),
+        .reset(reset),
+        .rd_ena(1'b1),
+        .rd_sel(PC_FE_latch),
+        .out_data(btb_target_FE),
+        .outs_valid(btb_hit_FE),
+        .wr_ena(bp_update_AGEX),
+        .wr_sel(btb_wr_pc_AGEX),
+        .wr_data(btb_wr_target_AGEX)
+      );
+    end else begin : g_btb_dm
+      BTB #(.IDX_BITS(`BP_BTB_BITS)) my_BTB (
+        .clk(clk),
+        .reset(reset),
+        .rd_ena(1'b1),
+        .rd_sel(PC_FE_latch),
+        .out_data(btb_target_FE),
+        .outs_valid(btb_hit_FE),
+        .wr_ena(bp_update_AGEX),
+        .wr_sel(btb_wr_pc_AGEX),
+        .wr_data(btb_wr_target_AGEX)
+      );
+    end
+  endgenerate
 
   assign pred_taken_FE = btb_hit_FE && pred_dir_FE;
   assign pred_pc_FE = pred_taken_FE ? btb_target_FE : pcplus_FE;
@@ -316,6 +332,69 @@ module BTB #(
       valid_bits[wr_idx] <= 1'b1;
       tags[wr_idx] <= wr_tag;
       targets[wr_idx] <= wr_data;
+    end
+  end
+endmodule
+
+module BTB_2WAY (
+  input wire clk,
+  input wire reset,
+  input wire rd_ena,
+  input wire [`DBITS-1:0] rd_sel,
+  output wire [`DBITS-1:0] out_data,
+  output wire outs_valid,
+  input wire wr_ena,
+  input wire [`DBITS-1:0] wr_sel,
+  input wire [`DBITS-1:0] wr_data
+);
+
+  localparam SET_BITS = 3;
+  localparam SETS = 1 << SET_BITS;
+  localparam TAG_BITS = `DBITS - SET_BITS - 2;
+
+  reg valid0 [SETS-1:0], valid1 [SETS-1:0];
+  reg [TAG_BITS-1:0] tag0 [SETS-1:0], tag1 [SETS-1:0];
+  reg [`DBITS-1:0] target0[SETS-1:0], target1[SETS-1:0];
+  reg lru [SETS-1:0];
+
+  wire [SET_BITS-1:0] rd_set = rd_sel[SET_BITS+1:2];
+  wire [TAG_BITS-1:0] rd_tag = rd_sel[`DBITS-1:SET_BITS+2];
+  wire [SET_BITS-1:0] wr_set = wr_sel[SET_BITS+1:2];
+  wire [TAG_BITS-1:0] wr_tag = wr_sel[`DBITS-1:SET_BITS+2];
+
+  wire rd_hit0 = valid0[rd_set] && (tag0[rd_set] == rd_tag);
+  wire rd_hit1 = valid1[rd_set] && (tag1[rd_set] == rd_tag);
+
+  assign outs_valid = rd_ena && (rd_hit0 || rd_hit1);
+  assign out_data = rd_hit1 ? target1[rd_set] : target0[rd_set];
+
+  wire wr_hit0 = valid0[wr_set] && (tag0[wr_set] == wr_tag);
+  wire wr_hit1 = valid1[wr_set] && (tag1[wr_set] == wr_tag);
+
+  wire wr_way  = wr_hit0 ? 1'b0 :
+                 wr_hit1 ? 1'b1 :
+                 !valid0[wr_set] ? 1'b0 :
+                 !valid1[wr_set] ? 1'b1 : lru[wr_set];
+
+  always @(posedge clk) begin
+    if (reset) begin
+      for (integer i = 0; i < SETS; i = i + 1) begin
+        valid0[i] <= 1'b0;
+        valid1[i] <= 1'b0;
+        lru[i] <= 1'b0;
+      end
+    end
+    else if (wr_ena) begin
+      if (wr_way) begin
+        valid1[wr_set] <= 1'b1;
+        tag1[wr_set] <= wr_tag;
+        target1[wr_set] <= wr_data;
+      end else begin
+        valid0[wr_set] <= 1'b1;
+        tag0[wr_set] <= wr_tag;
+        target0[wr_set] <= wr_data;
+      end
+      lru[wr_set] <= ~wr_way;
     end
   end
 

@@ -213,19 +213,23 @@
 
 
   `ifndef BP_BTB_BITS
-    `define BP_BTB_BITS 8 // BTB entries = 2^BP_BTB_BITS
+    `define BP_BTB_BITS 8
   `endif
 
   `ifndef BP_HASH
-    `define BP_HASH 0 // 0: gshare (PC ^ BHR), 1: PC only, 2: gselect {PC, BHR}
+    `define BP_HASH 0
   `endif
 
   `ifndef BP_PHT_1BIT
-    `define BP_PHT_1BIT 0 // 0 = two-bit PHT, 1: one-bit PHT_1BIT counters
+    `define BP_PHT_1BIT 0
+  `endif
+
+  `ifndef BP_BTB_2WAY
+    `define BP_BTB_2WAY 0
   `endif
 
   `ifndef GSEL_HIST_BITS
-    `define GSEL_HIST_BITS 4 // history bits used by gselect
+    `define GSEL_HIST_BITS 4
   `endif
 
 
