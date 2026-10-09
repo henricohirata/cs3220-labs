@@ -87,15 +87,29 @@ module FE_STAGE(
     .out(bhr_FE)
   );
 
-  PHT my_PHT (
-    .clk(clk),
-    .reset(reset),
-    .rd_sel(pht_idx_FE),
-    .out(pred_dir_FE),
-    .wr_sel(pht_idx_AGEX),
-    .wr_data(br_taken_AGEX),
-    .wr_ena(bp_update_AGEX)
-  );
+  generate
+    if (`BP_PHT_1BIT) begin : g_pht_1bit
+      PHT_1BIT my_PHT (
+        .clk(clk),
+        .reset(reset),
+        .rd_sel(pht_idx_FE),
+        .out(pred_dir_FE),
+        .wr_sel(pht_idx_AGEX),
+        .wr_data(br_taken_AGEX),
+        .wr_ena(bp_update_AGEX)
+      );
+    end else begin : g_pht_2bit
+      PHT my_PHT (
+        .clk(clk),
+        .reset(reset),
+        .rd_sel(pht_idx_FE),
+        .out(pred_dir_FE),
+        .wr_sel(pht_idx_AGEX),
+        .wr_data(br_taken_AGEX),
+        .wr_ena(bp_update_AGEX)
+      );
+    end
+  endgenerate
 
   BTB #(.IDX_BITS(`BP_BTB_BITS)) my_BTB (
     .clk(clk),
@@ -240,6 +254,28 @@ module PHT (
   end
 endmodule
 
+module PHT_1BIT (
+  input wire clk,
+  input wire reset,
+  input wire [`PHT_BITS-1:0] rd_sel,
+  output wire out,
+  input wire [`PHT_BITS-1:0] wr_sel,
+  input wire wr_data,
+  input wire wr_ena
+);
+
+  reg last_outcome [`PHT_WIDTH-1:0];
+  assign out = last_outcome[rd_sel];
+
+  always @ (posedge clk) begin
+    if (reset) begin
+      for (integer i = 0; i < `PHT_WIDTH; i = i + 1)
+        last_outcome[i] <= 1'b0;
+    end
+    else if (wr_ena)
+      last_outcome[wr_sel] <= wr_data;
+  end
+endmodule
 
 module BTB #(
   parameter IDX_BITS = `BTB_BITS

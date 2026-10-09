@@ -220,6 +220,10 @@
     `define BP_HASH 0 // 0: gshare (PC ^ BHR), 1: PC only, 2: gselect {PC, BHR}
   `endif
 
+  `ifndef BP_PHT_1BIT
+    `define BP_PHT_1BIT 0 // 0 = two-bit PHT, 1: one-bit PHT_1BIT counters
+  `endif
+
   `ifndef GSEL_HIST_BITS
     `define GSEL_HIST_BITS 4 // history bits used by gselect
   `endif
