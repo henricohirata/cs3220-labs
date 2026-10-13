@@ -62,6 +62,12 @@ module AGEX_STAGE(
   reg [`DBITS-1:0] br_target_AGEX;
   wire br_mispred_AGEX;
 
+  reg [`DBITS-1:0] aluout_AGEX;
+
+  wire rd_mem_AGEX;
+  wire wr_mem_AGEX;
+  wire [`DBITS-1:0] wr_val_AGEX;
+  wire [`DBITS-1:0] memaddr_AGEX;
 
   // ===== Task 1: unpack the DE latch ============================
   //
@@ -83,8 +89,14 @@ module AGEX_STAGE(
             pcplus_AGEX,
             op_I_AGEX,
             inst_count_AGEX,
-            de_latch_rest        // <-- Task 1: replace with the six remaining fields
-            } = from_DE_latch;
+            // de_latch_rest        // <-- Task 1: replace with the six remaining fields
+            regval1_AGEX,
+            regval2_AGEX,
+            sxt_imm_AGEX,
+            is_br_AGEX,
+            wr_reg_AGEX,
+  	        wregno_AGEX
+          } = from_DE_latch;
 
 
   // ===== Task 2: the ALU ========================================
@@ -97,11 +109,42 @@ module AGEX_STAGE(
   //
   // ===========================================================================
   always @ (*) begin
-    // case (op_I_AGEX)
-    //   default: begin
-    //     aluout_AGEX  = '0;
-    //   end
-    // endcase
+    case (op_I_AGEX)
+
+      `ADD_I: aluout_AGEX = regval1_AGEX + regval2_AGEX;
+      `ADDI_I: aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;
+      `SUB_I: aluout_AGEX = regval1_AGEX - regval2_AGEX;
+      `MUL_I: aluout_AGEX = regval1_AGEX * regval2_AGEX;
+
+      `AND_I: aluout_AGEX = regval1_AGEX & regval2_AGEX;
+      `ANDI_I: aluout_AGEX = regval1_AGEX & sxt_imm_AGEX;
+      `OR_I: aluout_AGEX = regval1_AGEX | regval2_AGEX;
+      `ORI_I: aluout_AGEX = regval1_AGEX | sxt_imm_AGEX;
+      `XOR_I: aluout_AGEX = regval1_AGEX ^ regval2_AGEX;
+      `XORI_I: aluout_AGEX = regval1_AGEX ^ sxt_imm_AGEX;
+
+      `SLL_I: aluout_AGEX = regval1_AGEX << regval2_AGEX[4:0];
+      `SLLI_I: aluout_AGEX = regval1_AGEX << sxt_imm_AGEX[4:0];
+      `SRL_I: aluout_AGEX = regval1_AGEX >> regval2_AGEX[4:0];
+      `SRLI_I: aluout_AGEX = regval1_AGEX >> sxt_imm_AGEX[4:0];
+      `SRA_I: aluout_AGEX = $signed(regval1_AGEX) >>> regval2_AGEX[4:0];
+      `SRAI_I: aluout_AGEX = $signed(regval1_AGEX) >>> sxt_imm_AGEX[4:0];
+
+      `SLT_I: aluout_AGEX = ($signed(regval1_AGEX) < $signed(regval2_AGEX)) ? 32'd1 : 32'd0;
+      `SLTI_I: aluout_AGEX = ($signed(regval1_AGEX) < $signed(sxt_imm_AGEX)) ? 32'd1 : 32'd0;
+      `SLTU_I: aluout_AGEX = (regval1_AGEX < regval2_AGEX) ? 32'd1 : 32'd0;
+      `SLTIU_I: aluout_AGEX = (regval1_AGEX < sxt_imm_AGEX) ? 32'd1 : 32'd0;
+
+      `LUI_I: aluout_AGEX = sxt_imm_AGEX;
+      `AUIPC_I: aluout_AGEX = PC_AGEX + sxt_imm_AGEX;
+      `JAL_I: aluout_AGEX = pcplus_AGEX;
+      `JALR_I: aluout_AGEX = pcplus_AGEX;
+
+      `LW_I: aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;
+      `SW_I: aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;
+
+      default: aluout_AGEX = '0;
+    endcase
   end
 
 
@@ -116,16 +159,26 @@ module AGEX_STAGE(
   //
   //   
   // ===========================================================================
+
+  assign rd_mem_AGEX = (op_I_AGEX == `LW_I);
+  assign wr_mem_AGEX = (op_I_AGEX == `SW_I);
+  assign wr_val_AGEX = regval2_AGEX;
+  assign memaddr_AGEX = regval1_AGEX + sxt_imm_AGEX;
+
   assign AGEX_latch_contents = {
                                 valid_AGEX,
                                 inst_AGEX,
                                 PC_AGEX,
                                 op_I_AGEX,
                                 inst_count_AGEX,
-                                // <-- Task 3: replace this padding with the
-                                //     three fields mem_stage.v unpacks next
-                                {(`AGEX_latch_WIDTH - (1 + `INSTBITS + `DBITS + `IOPBITS + `DBITS)){1'b0}}
-                                 };
+                                aluout_AGEX,
+                                wr_reg_AGEX,
+                                wregno_AGEX,
+                                rd_mem_AGEX,
+                                wr_mem_AGEX,
+                                wr_val_AGEX,
+                                memaddr_AGEX
+  };
 
   always @ (posedge clk ) begin
     if(reset) begin
@@ -153,14 +206,13 @@ module AGEX_STAGE(
   // ===========================================================================
   always @ (*) begin
     case (op_I_AGEX)
-      `BEQ_I : br_cond_AGEX = 1'b1; // write correct code to check the branch condition.
-      /*
-      `BNE_I : ...
-      `BLT_I : ...
-      `BGE_I : ...
-      `BLTU_I: ..
-      `BGEU_I : ...
-      */
+      `BEQ_I : br_cond_AGEX = (regval1_AGEX == regval2_AGEX);
+      `BNE_I : br_cond_AGEX = (regval1_AGEX != regval2_AGEX);
+      `BLT_I : br_cond_AGEX = ($signed(regval1_AGEX) < $signed(regval2_AGEX));
+      `BGE_I : br_cond_AGEX = ($signed(regval1_AGEX) >= $signed(regval2_AGEX));
+      `BLTU_I : br_cond_AGEX = (regval1_AGEX < regval2_AGEX);
+      `BGEU_I : br_cond_AGEX = (regval1_AGEX >= regval2_AGEX);
+
       default : br_cond_AGEX = 1'b0;
     endcase
   end
@@ -181,20 +233,31 @@ module AGEX_STAGE(
   //
   // ===========================================================================
 
-  always @(*)begin
-    br_target_AGEX = '0;              
-    // if (is_br_AGEX && br_cond_AGEX)
+  always @(*) begin
+
+    if (op_I_AGEX == `JALR_I) begin
+      br_target_AGEX = (regval1_AGEX + sxt_imm_AGEX) & ~32'h1;
+    end
+    else if (op_I_AGEX == `JAL_I) begin
+      br_target_AGEX = PC_AGEX + sxt_imm_AGEX;
+    end
+    else if (is_br_AGEX && br_cond_AGEX) begin
+      br_target_AGEX = PC_AGEX + sxt_imm_AGEX;
+    end
+    else begin
+      br_target_AGEX = pcplus_AGEX;
+    end
+
   end
 
-  
   assign br_mispred_AGEX = (is_br_AGEX
                          && (br_target_AGEX != pcplus_AGEX)) ? 1 : 0; // Given to you.  Do not change this line.
 
   // forward signals to the FE stage
-  assign from_AGEX_to_FE = '0;        
+  assign from_AGEX_to_FE = {br_mispred_AGEX, br_target_AGEX};        
 
   // forward signals to the DE stage
-  assign from_AGEX_to_DE = '0;        
+  assign from_AGEX_to_DE = br_mispred_AGEX;        
 
 
   // ===== Task 7: more ALU arms, and the jump targets =============

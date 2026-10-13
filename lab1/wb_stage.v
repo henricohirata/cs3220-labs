@@ -24,6 +24,7 @@ module WB_STAGE(
   wire [`REGNOBITS-1:0] wregno_WB; // destination register ID 
   wire [`DBITS-1:0] regval_WB;  // the contents to be written in the register file (or CSR )
   
+  wire rd_mem_WB;
 
   wire [`DBITS-1:0] aluout_WB;
   wire [`DBITS-1:0] rd_val_WB;
@@ -51,13 +52,15 @@ module WB_STAGE(
                                 // more signals might need   
                                 aluout_WB, 
                                 wr_reg_WB,
-                                wregno_WB        
+                                wregno_WB,
+                                rd_val_WB,
+                                rd_mem_WB
                                  } = from_MEM_latch; 
         
         // write register by sending data to the DE stage 
         
 
-assign regval_WB = aluout_WB;
+assign regval_WB = rd_mem_WB ? rd_val_WB : aluout_WB;
 
 // forward signals to FE stage
 assign from_WB_to_FE = '0;

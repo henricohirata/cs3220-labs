@@ -63,6 +63,8 @@ module MEM_STAGE(
   wire [`DBITS-1:0] rd_val_MEM;  // memory read value 
   wire [`DBITS-1:0] wr_val_MEM;  // memory write value 
   wire wr_mem_MEM;  // is this instruction writing a value into memory? 
+
+  wire rd_mem_MEM;
   
   // Read from D-MEM  (read code is completed if there is a correct memaddr_MEM ) 
   assign rd_val_MEM = dmem[memaddr_MEM[`DMEMADDRBITS-1:`DMEMWORDBITS]];
@@ -87,9 +89,13 @@ module MEM_STAGE(
                                  // more signals might need
                                 aluout_MEM,
                                 wr_reg_MEM,
-                                wregno_MEM
+                                wregno_MEM,
+                                rd_mem_MEM,
+                                wr_mem_MEM,
+                                wr_val_MEM,
+                                memaddr_MEM
                                  } = from_AGEX_latch;  
- 
+
 
    
    assign MEM_latch_contents = {
@@ -101,7 +107,9 @@ module MEM_STAGE(
                                         // more signals might need 
                                 aluout_MEM,
                                 wr_reg_MEM,
-                                wregno_MEM                
+                                wregno_MEM,
+                                rd_val_MEM,
+                                rd_mem_MEM              
    };
  
 
