@@ -251,59 +251,46 @@ def build_ops_test(name, ops, outdir, reuse_aluop=False, gap=0):
     emit(outdir, name, p, data, dcom)
 
 
-# =============================================================================
-# TODO (take-home): implement YOUR randomized stress test below.
-# =============================================================================
-# You only fill in the two functions. Do NOT rewrite build_ops_test / Prog / emit.
-# Flow: pick exact float32 operands → build a list of ops → call build_ops_test
-# → files land in test/student/ → ./run_tests.sh student
-# Helper already provided above: f2h(x) turns a Python float/int into IEEE-754
-# float32 bits (the hex form OP1/OP2/expected need).
-# More background: test/tools/README.md
-
 def rand_exact_op(rng):
-    """Return one random (aluop, op1_hex, op2_hex, expected_hex, comment).
+    # Return one random (aluop, op1_hex, op2_hex, expected_hex, comment).
 
-    TODO (take-home) suggestions:
-      1. Flip a coin with rng (e.g. rng.random()) to choose DIV (aluop=1) or
-         MULT (aluop=2).
-      2. MULT path: pick two small positive integers (keep the product well
-         below 2^24 so float32 can represent it exactly). Convert both factors
-         and the product with f2h(...). expected is the product.
-      3. DIV path: pick a quotient q and a divisor d (small positives). Set the
-         dividend to q*d. Then OP1=f2h(dividend), OP2=f2h(d), expected=f2h(q)
-         so the division reads back exactly as q.
-      4. Return a 5-tuple: (aluop, op1_bits, op2_bits, expected_bits, short_comment).
-         The comment is only for the .lst listing; human-readable is fine.
-      5. Avoid 0 divisors; stick to positive ints so you do not fight NaN/Inf here.
+    def scale():
+        return 2.0 ** rng.randint(-4, 4)
 
-    Why this shape? The checker embeds expected_hex and compares the ALU's OP3
-    store against it. If your floats are not exact, a correct HDL can still "fail".
-    """
-    raise NotImplementedError("TODO: implement rand_exact_op")
+    def sign():
+        return -1 if rng.random() < 0.25 else 1
+
+    if rng.random() < 0.5:
+        q = rng.randint(1, 2048) * sign() * scale()
+        d = rng.randint(1, 2048) * sign() * scale()
+        dividend = q * d
+        return (1, f2h(dividend), f2h(d), f2h(q), f"DIV {dividend:.9g} / {d:.9g} = {q:.9g}")
+
+    else:
+        a = rng.randint(1, 4095) * sign() * scale()
+        b = rng.randint(1, 4095) * sign() * scale()
+        prod = a * b
+        return (2, f2h(a), f2h(b), f2h(prod), f"MULT {a:.9g} * {b:.9g} = {prod:.9g}")
 
 
+def gen_random_stress(outdir, seed=904027927, n_ops=10):
+    # Build n_ops random ops and emit test/student/random_stress.{mem,S,lst}.
 
-def gen_random_stress(outdir, seed=3220, n_ops=10):
-    """Build n_ops random ops and emit test/student/random_stress.{mem,S,lst}.
+    rng = random.Random(seed)
+    ops = [rand_exact_op(rng) for _ in range(n_ops)]
 
-    TODO (take-home) suggestions:
-      1. Make an RNG from the seed: random.Random(seed) so the same seed always
-         rebuilds the same test (required for a personalized, reproducible submit).
-      2. Call rand_exact_op(rng) in a loop n_ops times; collect the tuples in a list.
-      3. Hand that list to build_ops_test(...). Use name "random_stress" and this
-         outdir so files land in test/student/.
-      4. For a first working version, call build_ops_test with reuse_aluop=False
-         and gap=0 (ALUOP reloaded every op, this is easier while debugging HDL).
-         Once stalls + handshake work, try reuse_aluop=True to stress streaming
-         (same-type ops without reloading ALUOP; needs the bonus-style ack).
-      5. Return the ops list (the __main__ block prints how many you generated).
+    for aluop, a, b, exp, com in ops:
+        fa, fb, fe = (struct.unpack("<f", struct.pack("<I", x))[0] for x in (a, b, exp))
 
-    You do not write assembly yourself (that would be awful); build_ops_test turns the op list into
-    the LW/SW mailbox program and the self-check against expected_hex.
-    """
-    raise NotImplementedError("TODO: implement gen_random_stress")
+        if (aluop == 1):
+            got = fa / fb
+        else:
+            got = fa * fb
 
+        assert f2h(got) == exp, f"inexact op generated: {com}"
+
+    build_ops_test("random_stress", ops, outdir, False, 0)
+    return ops
 
 
 if __name__ == "__main__":

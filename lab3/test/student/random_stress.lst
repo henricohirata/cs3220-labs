@@ -1,0 +1,185 @@
+# random_stress listing
+#-----------------------------------------------------------------------------
+#
+# Randomized DIV/MULT stress test.
+# code @ 0x200, data @ 0x800
+#
+
+  00000200: 00000093      li x1, 0
+  00000204: 00000113      li x2, 0
+  00000208: 00000193      li x3, 0
+  0000020c: 00000213      li x4, 0
+  00000210: 00000293      li x5, 0
+  00000214: 00000313      li x6, 0
+  00000218: 00000393      li x7, 0
+  0000021c: 00000413      li x8, 0
+  00000220: 00000493      li x9, 0
+  00000224: 00000513      li x10, 0
+  00000228: 00000593      li x11, 0
+  0000022c: 00000613      li x12, 0
+  00000230: 00000693      li x13, 0
+  00000234: 00000713      li x14, 0
+  00000238: 00000793      li x15, 0
+  0000023c: 00000813      li x16, 0
+  00000240: 00000893      li x17, 0
+  00000244: 00000913      li x18, 0
+  00000248: 00000993      li x19, 0
+  0000024c: 00000a13      li x20, 0
+  00000250: 00000a93      li x21, 0
+  00000254: 00000b13      li x22, 0
+  00000258: 00000b93      li x23, 0
+  0000025c: 00000c13      li x24, 0
+  00000260: 00000c93      li x25, 0
+  00000264: 00000d13      li x26, 0
+  00000268: 00000d93      li x27, 0
+  0000026c: 00000e13      li x28, 0
+  00000270: 00000e93      li x29, 0
+  00000274: 00000f13      li x30, 0
+  00000278: 00000f93      li x31, 0
+  0000027c: 000012b7      lui x5, 0x1 # x5 = data block base
+  00000280: 80028293      addi x5, x5, -2048
+  00000284: 00200193      li x3, 2 # gp=2: hang before/inside burst means a deadlock
+burst:
+  00000288: 0002ae83      lw x29, 0(x5) # op0: load ALUOP
+  0000028c: 0042af03      lw x30, 4(x5) # op0: load OP1
+  00000290: 0082af83      lw x31, 8(x5) # op0: load OP2
+  00000294: 01b2a623      sw x27, 12(x5) # op0: store result (DIV 1699656 / 3624 = 469)
+  00000298: 0102ae83      lw x29, 16(x5) # op1: load ALUOP
+  0000029c: 0142af03      lw x30, 20(x5) # op1: load OP1
+  000002a0: 0182af83      lw x31, 24(x5) # op1: load OP2
+  000002a4: 01b2ae23      sw x27, 28(x5) # op1: store result (DIV 336 / 28 = 12)
+  000002a8: 0202ae83      lw x29, 32(x5) # op2: load ALUOP
+  000002ac: 0242af03      lw x30, 36(x5) # op2: load OP1
+  000002b0: 0282af83      lw x31, 40(x5) # op2: load OP2
+  000002b4: 03b2a623      sw x27, 44(x5) # op2: store result (DIV 18680 / 80 = 233.5)
+  000002b8: 0302ae83      lw x29, 48(x5) # op3: load ALUOP
+  000002bc: 0342af03      lw x30, 52(x5) # op3: load OP1
+  000002c0: 0382af83      lw x31, 56(x5) # op3: load OP2
+  000002c4: 03b2ae23      sw x27, 60(x5) # op3: store result (DIV 727605 / 6840 = 106.375)
+  000002c8: 0402ae83      lw x29, 64(x5) # op4: load ALUOP
+  000002cc: 0442af03      lw x30, 68(x5) # op4: load OP1
+  000002d0: 0482af83      lw x31, 72(x5) # op4: load OP2
+  000002d4: 05b2a623      sw x27, 76(x5) # op4: store result (MULT 67.75 * -2660 = -180215)
+  000002d8: 0502ae83      lw x29, 80(x5) # op5: load ALUOP
+  000002dc: 0542af03      lw x30, 84(x5) # op5: load OP1
+  000002e0: 0582af83      lw x31, 88(x5) # op5: load OP2
+  000002e4: 05b2ae23      sw x27, 92(x5) # op5: store result (DIV -134130 / -680 = 197.25)
+  000002e8: 0602ae83      lw x29, 96(x5) # op6: load ALUOP
+  000002ec: 0642af03      lw x30, 100(x5) # op6: load OP1
+  000002f0: 0682af83      lw x31, 104(x5) # op6: load OP2
+  000002f4: 07b2a623      sw x27, 108(x5) # op6: store result (DIV 117906.25 / 1925 = 61.25)
+  000002f8: 0702ae83      lw x29, 112(x5) # op7: load ALUOP
+  000002fc: 0742af03      lw x30, 116(x5) # op7: load OP1
+  00000300: 0782af83      lw x31, 120(x5) # op7: load OP2
+  00000304: 07b2ae23      sw x27, 124(x5) # op7: store result (MULT 5242 * -652.5 = -3420405)
+  00000308: 0802ae83      lw x29, 128(x5) # op8: load ALUOP
+  0000030c: 0842af03      lw x30, 132(x5) # op8: load OP1
+  00000310: 0882af83      lw x31, 136(x5) # op8: load OP2
+  00000314: 09b2a623      sw x27, 140(x5) # op8: store result (DIV -286760 / -535 = 536)
+  00000318: 0902ae83      lw x29, 144(x5) # op9: load ALUOP
+  0000031c: 0942af03      lw x30, 148(x5) # op9: load OP1
+  00000320: 0982af83      lw x31, 152(x5) # op9: load OP2
+  00000324: 09b2ae23      sw x27, 156(x5) # op9: store result (MULT -31776 * 237.8125 = -7556730)
+  00000328: 00300193      li x3, 3 # check op0
+  0000032c: 00c2aa83      lw x21, 12(x5) # read back result
+  00000330: 43ea8b37      lui x22, 0x43ea8 # expected DIV 1699656 / 3624 = 469
+  00000334: 0b6a9c63      bne x21, x22, fail
+  00000338: 00400193      li x3, 4 # check op1
+  0000033c: 01c2aa83      lw x21, 28(x5) # read back result
+  00000340: 41400b37      lui x22, 0x41400 # expected DIV 336 / 28 = 12
+  00000344: 0b6a9463      bne x21, x22, fail
+  00000348: 00500193      li x3, 5 # check op2
+  0000034c: 02c2aa83      lw x21, 44(x5) # read back result
+  00000350: 43698b37      lui x22, 0x43698 # expected DIV 18680 / 80 = 233.5
+  00000354: 096a9c63      bne x21, x22, fail
+  00000358: 00600193      li x3, 6 # check op3
+  0000035c: 03c2aa83      lw x21, 60(x5) # read back result
+  00000360: 42d4cb37      lui x22, 0x42d4c # expected DIV 727605 / 6840 = 106.375
+  00000364: 096a9463      bne x21, x22, fail
+  00000368: 00700193      li x3, 7 # check op4
+  0000036c: 04c2aa83      lw x21, 76(x5) # read back result
+  00000370: c8300b37      lui x22, 0xc8300 # expected MULT 67.75 * -2660 = -180215
+  00000374: dc0b0b13      addi x22, x22, -576
+  00000378: 076a9a63      bne x21, x22, fail
+  0000037c: 00800193      li x3, 8 # check op5
+  00000380: 05c2aa83      lw x21, 92(x5) # read back result
+  00000384: 43454b37      lui x22, 0x43454 # expected DIV -134130 / -680 = 197.25
+  00000388: 076a9263      bne x21, x22, fail
+  0000038c: 00900193      li x3, 9 # check op6
+  00000390: 06c2aa83      lw x21, 108(x5) # read back result
+  00000394: 42750b37      lui x22, 0x42750 # expected DIV 117906.25 / 1925 = 61.25
+  00000398: 056a9a63      bne x21, x22, fail
+  0000039c: 00a00193      li x3, 10 # check op7
+  000003a0: 07c2aa83      lw x21, 124(x5) # read back result
+  000003a4: ca50cb37      lui x22, 0xca50c # expected MULT 5242 * -652.5 = -3420405
+  000003a8: 3d4b0b13      addi x22, x22, 980
+  000003ac: 056a9063      bne x21, x22, fail
+  000003b0: 00b00193      li x3, 11 # check op8
+  000003b4: 08c2aa83      lw x21, 140(x5) # read back result
+  000003b8: 44060b37      lui x22, 0x44060 # expected DIV -286760 / -535 = 536
+  000003bc: 036a9863      bne x21, x22, fail
+  000003c0: 00c00193      li x3, 12 # check op9
+  000003c4: 09c2aa83      lw x21, 156(x5) # read back result
+  000003c8: cae6ab37      lui x22, 0xcae6a # expected MULT -31776 * 237.8125 = -7556730
+  000003cc: cf4b0b13      addi x22, x22, -780
+  000003d0: 016a9e63      bne x21, x22, fail
+pass:
+  000003d4: 00100193      li x3, 1
+  000003d8: 00000013      nop
+  000003dc: 00000013      nop
+  000003e0: 00000013      nop
+  000003e4: 00000013      nop
+  000003e8: 0180006f      j theend
+fail:
+  000003ec: 00000013      nop
+  000003f0: 00000013      nop
+  000003f4: 00000013      nop
+  000003f8: 00000013      nop
+  000003fc: 0040006f      j theend
+theend:
+  00000400: 00000013      nop
+  00000404: 00000013      nop
+  00000408: 00000013      nop
+  0000040c: 00000013      nop
+
+# data
+  00000800: 00000001  # ALUOP (DIV 1699656 / 3624 = 469)
+  00000804: 49cf7a40  # OP1
+  00000808: 45628000  # OP2
+  0000080c: 00000000  # result slot
+  00000810: 00000001  # ALUOP (DIV 336 / 28 = 12)
+  00000814: 43a80000  # OP1
+  00000818: 41e00000  # OP2
+  0000081c: 00000000  # result slot
+  00000820: 00000001  # ALUOP (DIV 18680 / 80 = 233.5)
+  00000824: 4691f000  # OP1
+  00000828: 42a00000  # OP2
+  0000082c: 00000000  # result slot
+  00000830: 00000001  # ALUOP (DIV 727605 / 6840 = 106.375)
+  00000834: 4931a350  # OP1
+  00000838: 45d5c000  # OP2
+  0000083c: 00000000  # result slot
+  00000840: 00000002  # ALUOP (MULT 67.75 * -2660 = -180215)
+  00000844: 42878000  # OP1
+  00000848: c5264000  # OP2
+  0000084c: 00000000  # result slot
+  00000850: 00000001  # ALUOP (DIV -134130 / -680 = 197.25)
+  00000854: c802fc80  # OP1
+  00000858: c42a0000  # OP2
+  0000085c: 00000000  # result slot
+  00000860: 00000001  # ALUOP (DIV 117906.25 / 1925 = 61.25)
+  00000864: 47e64920  # OP1
+  00000868: 44f0a000  # OP2
+  0000086c: 00000000  # result slot
+  00000870: 00000002  # ALUOP (MULT 5242 * -652.5 = -3420405)
+  00000874: 45a3d000  # OP1
+  00000878: c4232000  # OP2
+  0000087c: 00000000  # result slot
+  00000880: 00000001  # ALUOP (DIV -286760 / -535 = 536)
+  00000884: c88c0500  # OP1
+  00000888: c405c000  # OP2
+  0000088c: 00000000  # result slot
+  00000890: 00000002  # ALUOP (MULT -31776 * 237.8125 = -7556730)
+  00000894: c6f84000  # OP1
+  00000898: 436dd000  # OP2
+  0000089c: 00000000  # result slot
