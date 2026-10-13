@@ -249,7 +249,7 @@ module DE_STAGE(
   reg  [`ALUDATABITS-1:0]   OP1_to_FU;
   reg  [`ALUDATABITS-1:0]   OP2_to_FU;
   reg  [`ALUOPBITS-1:0]     ALUOP_to_FU;
-  reg  [`ALUCSRINBITS-1:0]  CSR_ALU_IN_to_FU;   // [0]=result ack, [1]=OP1 stable, [2]=OP2 stable
+  reg  [`ALUCSRINBITS-1:0]  CSR_ALU_IN_to_FU; // [0]=result ack, [1]=OP1 stable, [2]=OP2 stable
 
   // FU -> DE
   wire [`ALUDATABITS-1:0]   OP3_from_FU;
@@ -348,18 +348,9 @@ module DE_STAGE(
   assign has_data_hazards = (use_rs1_DE && in_use_regs[rs1_DE]) 
                          || (use_rs2_DE && in_use_regs[rs2_DE]);
 
-  // TODO(take-home): Stall when the ALU cannot accept an operand, or when the
-  // result is not valid yet for a store of OP3. In-class tests insert enough
-  // NOPs that you can leave this alone for now
-  //   e.g. OR an ALU-not-ready condition into pipeline_stall_DE using
-  //   CSR_ALU_OUT from the FU together with your mailbox detection above
-  //
-  // NOTE: the shipped handshake_div test issues `sw x27` right after `lw x31`
-  // (see the reference VCD), so the result-valid stall is needed even for
-  // the in-class run. Operand-ready checks mirror the reference waveform.
-  wire alu_not_ready_stall = (is_load_op1  && !CSR_ALU_OUT_from_FU[0])
-                          || (is_load_op2  && !CSR_ALU_OUT_from_FU[1])
-                          || (is_store_op3 && !CSR_ALU_OUT_from_FU[2]);
+  wire alu_not_ready_stall = (is_store_op3 && !CSR_ALU_OUT_from_FU[2])
+                          || (is_load_op1  &&  CSR_ALU_IN_to_FU[1])
+                          || (is_load_op2  &&  CSR_ALU_IN_to_FU[2]);
 
   assign pipeline_stall_DE = has_data_hazards || br_mispred_AGEX || alu_not_ready_stall;
 
@@ -393,29 +384,18 @@ module DE_STAGE(
     end
   end
 
-  // TODO(in-class): Drive the mailbox toward the FU (typically on WB & negedge).
-  //
-  // Suggestions (this is the main in-class control block):
-  //   • Use an always @(negedge clk) (same edge as the RF write above) so the
-  //     mailbox sees the same stable regval_WB that just committed.
-  //   • On reset: clear OP1/OP2/ALUOP; set CSR_ALU_IN to the ALU's starting
-  //     state (study the waveform / README — look at CSR_ALU_IN right after reset).
-  //   • When wr_reg_WB && wregno_WB matches a mailbox dest:
-  //       ALUOP (`ALUOP_REG_IDX) → latch regval_WB into ALUOP; raise the
-  //         "start/ack" side of CSR_ALU_IN (bit 0 on the waveform).
-  //       OP1   (`OP1_REG_IDX)   → latch OP1; pulse the OP1-stable CSR bit;
-  //         clear bit 0 when you are ready for a result (see waveform).
-  //       OP2   (`OP2_REG_IDX)   → latch OP2; pulse the OP2-stable CSR bit.
-  //   • When you are NOT loading a mailbox reg that cycle, clear the pulsed
-  //     CSR bits (they are one-shot style on the reference waveform).
-  // Study first: artifacts/waveform/lab3_inclass_handshake.{vcd,gtkw}
-  //   Zoom the OP1/OP2 load region and watch CSR_ALU_IN vs CSR_ALU_OUT.
-  //
-  // TODO(bonus): Also ack a completed result when streaming without reloading
-  // ALUOP (otherwise the ALU can deadlock waiting for CSR_ALU_IN[0]).
+  reg op1_taken, op2_taken;
+  always @ (posedge clk) begin
+    if (reset) begin
+      op1_taken <= 1'b0;
+      op2_taken <= 1'b0;
+    end else begin
+      op1_taken <= CSR_ALU_IN_to_FU[1] && CSR_ALU_OUT_from_FU[0];
+      op2_taken <= CSR_ALU_IN_to_FU[2] && CSR_ALU_OUT_from_FU[1];
+    end
+  end
 
   always @ (negedge clk) begin
-
     if (reset) begin
       OP1_to_FU        <= '0;
       OP2_to_FU        <= '0;
@@ -424,21 +404,22 @@ module DE_STAGE(
 
     end else begin
 
-      CSR_ALU_IN_to_FU[2:1] <= 2'b00;
+      if (op1_taken) CSR_ALU_IN_to_FU[1] <= 1'b0;
+      if (op2_taken) CSR_ALU_IN_to_FU[2] <= 1'b0;
 
       if (wr_reg_WB && (wregno_WB == `ALUOP_REG_IDX)) begin
         ALUOP_to_FU <= regval_WB[`ALUOPBITS-1:0];
         CSR_ALU_IN_to_FU[0] <= 1'b1;
-        
+        CSR_ALU_IN_to_FU[2:1] <= 2'b00;
+
       end else if (wr_reg_WB && (wregno_WB == `OP1_REG_IDX)) begin
         OP1_to_FU <= regval_WB;
-        CSR_ALU_IN_to_FU[1] <= 1'b1;
         CSR_ALU_IN_to_FU[0] <= 1'b0;
-        
+        CSR_ALU_IN_to_FU[1] <= (ALUOP_to_FU != '0);
+
       end else if (wr_reg_WB && (wregno_WB == `OP2_REG_IDX)) begin
         OP2_to_FU <= regval_WB;
-        CSR_ALU_IN_to_FU[2] <= 1'b1;
-        CSR_ALU_IN_to_FU[1] <= CSR_ALU_IN_to_FU[1];
+        CSR_ALU_IN_to_FU[2] <= (ALUOP_to_FU != '0);
 
       end
 
