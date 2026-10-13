@@ -245,6 +245,20 @@ module DE_STAGE(
   // Use the macros in define.vh (`ALUDATABITS, `ALUOPBITS, `ALUCSRINBITS,
   // `ALUCSROUTBITS) so widths stay consistent with FU_stage.v.
 
+  // DE -> FU
+  reg  [`ALUDATABITS-1:0]   OP1_to_FU;
+  reg  [`ALUDATABITS-1:0]   OP2_to_FU;
+  reg  [`ALUOPBITS-1:0]     ALUOP_to_FU;
+  reg  [`ALUCSRINBITS-1:0]  CSR_ALU_IN_to_FU;   // [0]=result ack, [1]=OP1 stable, [2]=OP2 stable
+
+  // FU -> DE
+  wire [`ALUDATABITS-1:0]   OP3_from_FU;
+  wire [`ALUCSROUTBITS-1:0] CSR_ALU_OUT_from_FU; // [0]=OP1 ready, [1]=OP2 ready, [2]=result valid
+
+  assign {
+    OP3_from_FU,
+    CSR_ALU_OUT_from_FU
+  } = from_FU_to_DE;
 
 
   // Decode instruction registers
@@ -288,14 +302,11 @@ module DE_STAGE(
                       (op_I_DE == `JAL_I) || 
                       (op_I_DE == `JALR_I)) ? ((rd_DE != 0) ? 1 : 0): 0; 
 
-  // TODO(in-class): Detect when the current instruction targets a mailbox reg.
-  //
-  // Suggestions: add a few wires comparing op_I_DE + rd_DE/rs2_DE against the
-  // reserved indices in define.vh, e.g. "is_load_aluop is true if it's a LW and rd is assigned toALUOP_REG_IDX"
-  //   
-  // You mainly need these for take-home stalls; for in-class they still help
-  // you reason about which instructions touch the ALU mailbox.
-
+  wire is_load_aluop = (op_I_DE == `LW_I) && (rd_DE  == `ALUOP_REG_IDX);
+  wire is_load_op1   = (op_I_DE == `LW_I) && (rd_DE  == `OP1_REG_IDX);
+  wire is_load_op2   = (op_I_DE == `LW_I) && (rd_DE  == `OP2_REG_IDX);
+  wire is_store_op3  = (op_I_DE == `SW_I) && (rs2_DE == `OP3_REG_IDX);
+  `UNUSED_VAR (is_load_aluop)
 
 
   always @(*) begin 
@@ -342,10 +353,17 @@ module DE_STAGE(
   // NOPs that you can leave this alone for now
   //   e.g. OR an ALU-not-ready condition into pipeline_stall_DE using
   //   CSR_ALU_OUT from the FU together with your mailbox detection above
+  //
+  // NOTE: the shipped handshake_div test issues `sw x27` right after `lw x31`
+  // (see the reference VCD), so the result-valid stall is needed even for
+  // the in-class run. Operand-ready checks mirror the reference waveform.
+  wire alu_not_ready_stall = (is_load_op1  && !CSR_ALU_OUT_from_FU[0])
+                          || (is_load_op2  && !CSR_ALU_OUT_from_FU[1])
+                          || (is_store_op3 && !CSR_ALU_OUT_from_FU[2]);
 
+  assign pipeline_stall_DE = has_data_hazards || br_mispred_AGEX || alu_not_ready_stall;
 
-
-  assign pipeline_stall_DE = has_data_hazards || br_mispred_AGEX;
+  wire op3_store_commits = is_store_op3 && !pipeline_stall_DE;
 
   always @(posedge clk) begin
     if (reset) begin
@@ -396,18 +414,41 @@ module DE_STAGE(
   // TODO(bonus): Also ack a completed result when streaming without reloading
   // ALUOP (otherwise the ALU can deadlock waiting for CSR_ALU_IN[0]).
 
+  always @ (negedge clk) begin
 
+    if (reset) begin
+      OP1_to_FU        <= '0;
+      OP2_to_FU        <= '0;
+      ALUOP_to_FU      <= '0;
+      CSR_ALU_IN_to_FU <= 3'b001;
 
-  // TODO(in-class): Make reads of OP3/CSR_ALU_OUT see the *live* FU values,
-  // not whatever is sitting in the register file.
-  //
-  // Suggestions: maybe override rs2_val_DE with...
-  //   "if rs2 is just assigned to OP3_REG_IDX, then use OP3_from_FU... 
-  //   otherwise, if rs2 is just assigned to CSR_OUT_REG_IDX, then use zero-extend(CSR_ALU_OUT_from_FU)...
-  //   otherwise, use the original rs2_val_DE"
-  //
-  // Then plug that into DE_latch_contents below (SW of OP3 needs the live result).
+    end else begin
 
+      CSR_ALU_IN_to_FU[2:1] <= 2'b00;
+
+      if (wr_reg_WB && (wregno_WB == `ALUOP_REG_IDX)) begin
+        ALUOP_to_FU <= regval_WB[`ALUOPBITS-1:0];
+        CSR_ALU_IN_to_FU[0] <= 1'b1;
+        
+      end else if (wr_reg_WB && (wregno_WB == `OP1_REG_IDX)) begin
+        OP1_to_FU <= regval_WB;
+        CSR_ALU_IN_to_FU[1] <= 1'b1;
+        CSR_ALU_IN_to_FU[0] <= 1'b0;
+        
+      end else if (wr_reg_WB && (wregno_WB == `OP2_REG_IDX)) begin
+        OP2_to_FU <= regval_WB;
+        CSR_ALU_IN_to_FU[2] <= 1'b1;
+        CSR_ALU_IN_to_FU[1] <= CSR_ALU_IN_to_FU[1];
+
+      end
+
+      if (op3_store_commits) CSR_ALU_IN_to_FU[0] <= 1'b1;
+    end
+  end
+
+  wire [`DBITS-1:0] rs2_val_DE_final =
+      (rs2_DE == `OP3_REG_IDX) ? OP3_from_FU :
+      (rs2_DE == `CSR_OUT_REG_IDX) ? {{(`DBITS-`ALUCSROUTBITS){1'b0}}, CSR_ALU_OUT_from_FU} : rs2_val_DE;
 
 
   // the order of latch contents should be matched in the AGEX stage when we extract the contents.
@@ -419,7 +460,7 @@ module DE_STAGE(
     pcnext_DE,
     op_I_DE,
     rs1_val_DE,
-    rs2_val_DE, // TODO(in-class): swap in your live OP3/CSR override
+    rs2_val_DE_final,
     sxt_imm_DE,
     is_br_DE,
     is_jmp_DE,
@@ -450,11 +491,11 @@ module DE_STAGE(
   // send DE latch contents to next pipeline stage
   assign DE_latch_out = DE_latch;
 
-  // TODO(in-class): Pack and drive `from_DE_to_FU` with your mailbox + CSR_ALU_IN.
-  //
-  // Suggestion: Pack from_DE_to_FU with OP1, OP2, ALUOP, CSR_ALU_IN
-  // It's basically the same field order (and widths) as the unpack in FU_stage.v
-
-
+  assign from_DE_to_FU = {
+    OP1_to_FU,
+    OP2_to_FU,
+    ALUOP_to_FU,
+    CSR_ALU_IN_to_FU
+  };
 
 endmodule
