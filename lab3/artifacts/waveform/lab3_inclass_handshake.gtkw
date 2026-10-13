@@ -1,0 +1,41 @@
+[*]
+[*] GTKWave Analyzer v3 save file
+[*] Lab 3 in-class DIV handshake reference (handshake_div test)
+[*] Open: gtkwave lab3_inclass_handshake.vcd lab3_inclass_handshake.gtkw
+[*]
+[timestart] 130
+[timestop] 700
+[treeopen] TOP.
+[treeopen] TOP.pipeline.
+[treeopen] TOP.pipeline.my_DE_stage.
+[treeopen] TOP.pipeline.my_FU_stage.
+[sst_width] 300
+[signals_width] 1400
+[sst_vpan1_height] 260
+[waveform viewport] 130 700
+@28
+TOP.pipeline.clk
+@28
+TOP.pipeline.my_DE_stage.pipeline_stall_DE
+@28
+TOP.pipeline.my_DE_stage.alu_not_ready_stall
+@28
+TOP.pipeline.my_DE_stage.is_load_aluop
+@28
+TOP.pipeline.my_DE_stage.is_load_op1
+@28
+TOP.pipeline.my_DE_stage.is_load_op2
+@28
+TOP.pipeline.my_DE_stage.is_store_op3
+@28
+TOP.pipeline.my_DE_stage.CSR_ALU_IN_to_FU[2:0]
+@28
+TOP.pipeline.my_DE_stage.CSR_ALU_OUT_from_FU[2:0]
+@22
+TOP.pipeline.my_DE_stage.ALUOP_to_FU[3:0]
+@22
+TOP.pipeline.my_DE_stage.OP1_to_FU[31:0]
+@22
+TOP.pipeline.my_DE_stage.OP2_to_FU[31:0]
+@22
+TOP.pipeline.my_DE_stage.OP3_from_FU[31:0]
