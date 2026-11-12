@@ -95,8 +95,9 @@ module systolic_array #(
     //     column 0 must look. Column 1 is the last column itself.
     //   • Check in trace.vcd: on the cycle each MAC's stream_out_rdy_in is high, psum[OWN_DELAY]
     //     should hold that MAC's finished sum, not a partial sum of the next matmul.
-    localparam OWN_DELAY_COL0 = 0;   // TODO
-    localparam OWN_DELAY_COL1 = 0;   // TODO
+
+    localparam OWN_DELAY_COL0 = 1;
+    localparam OWN_DELAY_COL1 = 0;
 
 
     // PE(0,0): worked example, fully connected (provided)
@@ -141,16 +142,16 @@ module systolic_array #(
     ) mac_01 (
         .clk(clk),
         .rst(rst),
-        .rst_accumulator_in(/* TODO */),
-        .stream_out_rdy_in(/* TODO */),
-        .row_data_in(/* TODO */),
-        .col_data_in(/* TODO */),
-        .bypass_data_in(/* TODO */),
-        .row_data_out(/* TODO */),
-        .col_data_out(/* TODO */),
-        .rst_accumulator_out(/* TODO */),
-        .stream_out_rdy_out(/* TODO */),
-        .psum_out(/* TODO */)
+        .rst_accumulator_in(control_rst_accumulator_rdy[1]),
+        .stream_out_rdy_in(control_stream_out_rdy[1]),
+        .row_data_in(row_00_01),
+        .col_data_in(col_data_in[IN_WIDTH*1 +: IN_WIDTH]),
+        .bypass_data_in('0),
+        .row_data_out(),
+        .col_data_out(col_01_11),
+        .rst_accumulator_out(rst_01_11),
+        .stream_out_rdy_out(so_01_11),
+        .psum_out(psum_01)
     );
 
     //TODO [In-Class 1]: PE(1,0): bottom row, left column
@@ -163,16 +164,16 @@ module systolic_array #(
     ) mac_10 (
         .clk(clk),
         .rst(rst),
-        .rst_accumulator_in(/* TODO */),
-        .stream_out_rdy_in(/* TODO */),
-        .row_data_in(/* TODO */),
-        .col_data_in(/* TODO */),
-        .bypass_data_in(/* TODO */),
-        .row_data_out(/* TODO */),
-        .col_data_out(/* TODO */),
-        .rst_accumulator_out(/* TODO */),
-        .stream_out_rdy_out(/* TODO */),
-        .psum_out(/* TODO */)
+        .rst_accumulator_in(rst_00_10),
+        .stream_out_rdy_in(so_00_10),
+        .row_data_in(row_data_in[IN_WIDTH*1 +: IN_WIDTH]),
+        .col_data_in(col_00_10),
+        .bypass_data_in(psum_11),
+        .row_data_out(row_10_11),
+        .col_data_out(),
+        .rst_accumulator_out(),
+        .stream_out_rdy_out(),
+        .psum_out(psum_10)
     );
 
     //TODO [In-Class 1]: PE(1,1): bottom row, right column
@@ -184,16 +185,16 @@ module systolic_array #(
     ) mac_11 (
         .clk(clk),
         .rst(rst),
-        .rst_accumulator_in(/* TODO */),
-        .stream_out_rdy_in(/* TODO */),
-        .row_data_in(/* TODO */),
-        .col_data_in(/* TODO */),
-        .bypass_data_in(/* TODO */),
-        .row_data_out(/* TODO */),
-        .col_data_out(/* TODO */),
-        .rst_accumulator_out(/* TODO */),
-        .stream_out_rdy_out(/* TODO */),
-        .psum_out(/* TODO */)
+        .rst_accumulator_in(rst_01_11),
+        .stream_out_rdy_in(so_01_11),
+        .row_data_in(row_10_11),
+        .col_data_in(col_01_11),
+        .bypass_data_in('0),
+        .row_data_out(),
+        .col_data_out(),
+        .rst_accumulator_out(),
+        .stream_out_rdy_out(),
+        .psum_out(psum_11)
     );
 
     //TODO [In-Class 1]: Array outputs
@@ -202,6 +203,6 @@ module systolic_array #(
     //   • Results flow right -> left, so each row's output comes from that row's column 0 MAC.
     //   • Check in trace.vcd: row_data_out row 1 should look like row 0, one cycle later.
     assign row_data_out[OUT_WIDTH*0 +: OUT_WIDTH] = psum_00;   // row 0 (provided)
-    assign row_data_out[OUT_WIDTH*1 +: OUT_WIDTH] = '0;        // row 1: TODO, replace '0
+    assign row_data_out[OUT_WIDTH*1 +: OUT_WIDTH] = psum_10;
 
 endmodule

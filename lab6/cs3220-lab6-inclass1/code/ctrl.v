@@ -29,7 +29,8 @@ module ctrl #(
     //   • rst_accumulator[0] comes out exactly RST_DELAY cycles after input_rst_accumulator.
     //   • Check in trace.vcd: PE(0,0).rst_accumulator_in should be high on the same cycle that
     //     PE(0,0).adder_in_A holds the first product of a dot product.
-    localparam RST_DELAY = 1;          // TODO: replace 1 (must be >= 1)
+
+    localparam RST_DELAY = MULT_LAT + 1; // = 4 for MULT_LAT = 3
 
     //TODO [In-Class 1]: How many cycles should the stream_out_rdy pulse be delayed?
     // - The pulse arrives together with the last input of a dot product.
@@ -46,7 +47,8 @@ module ctrl #(
     //     see it. That +1 is already in the code below; do not count it here.
     //   • Check in trace.vcd: PE(0,1).stream_out_rdy_in should be high on the cycle right after
     //     its adder_out shows the finished sum (so psum[0] holds it).
-    localparam STREAM_OUT_DELAY = 1;   // TODO: replace 1 (must be >= 1)
+
+    localparam STREAM_OUT_DELAY = (COLS - 1) + RST_DELAY + ACC_LAT; // = 6 for 2x2, MULT_LAT = 3
 
 
     // ------------------------------------------------------------------
