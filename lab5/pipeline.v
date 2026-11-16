@@ -3,6 +3,7 @@
 module pipeline (
   input wire clk,
   input wire reset_n,
+  input wire [31:0] inst_in,
   output[31:0] out1,
   output[31:0] out2
 
@@ -41,6 +42,7 @@ module pipeline (
     .from_AGEX_to_FE(from_AGEX_to_FE),
     .from_MEM_to_FE(from_MEM_to_FE),
     .from_WB_to_FE(from_WB_to_FE),
+    .inst_in(inst_in),
     .FE_latch_out(FE_latch_out)
   ); 
                      
