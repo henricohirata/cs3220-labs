@@ -2,7 +2,7 @@
 
 **Take-Home: 60 pts** (Part A: 15 pts, Part B: 15 pts, Part C: 15 pts, Report: 15 pts)
 
-***Submission ddl***: Dec. 1st (tentative)
+**Deadline**: Dec. 4th
 
 Lab 6 points:
 
@@ -26,10 +26,11 @@ All three parts and the report are required. Part C uses your Part A and B desig
 ## Running Tests
 
 - **Setup:** in every new terminal, run `cd code` and then `source init.sh`.
-- **Always name a target:** `make systolic_array`, `make systolic_array_nk`, or `make systolic_array_axis`. Plain `make` does not work.
+- **Always name a target:** `make systolic_array`, `make systolic_array_nk`, or `make systolic_array_axis`. Plain `make` only lists the available targets.
 - **Reading a grading script's output:** it prints a line like "expect 5 passes", then one `PASSED!` per passing test. A failing test prints nothing, so count the `PASSED!` lines.
 - **Debugging a failure:** the grading scripts end with `make clean`, which deletes `results.log`, the `.bin` files, and `trace.vcd`. Rerun the failing case on its own with `make`, then open `results.log` and `trace.vcd`.
-- **Run time:** each full `run_axis.sh` run took about 15 to 20 minutes in TA testing. Debug with single tests first.
+- **Run time:** each full `run_axis.sh` run takes about 10 to 20 minutes, depending on the machine. Debug with single tests first.
+- **Ungraded sanity check:** the first group in `run.sh` and `run_axis.sh` ("Testing simplest 2x2x2 case") is not graded. The graded groups are listed under each part below.
 
 
 ### Part A: MxN Systolic Array (15 pts)
@@ -42,10 +43,9 @@ During the actual grading for Part A, we will use
 
 Detailed parameters will not be disclosed.
 
+To check your design locally, run `chmod +x run.sh && ./run.sh`. The autograder uses hidden tests in the same categories, with the settings above.
 
-Grading command: `chmod +x run.sh && ./run.sh`
-
-You design should be robust and the grading rubrics as follows:
+Your design should be robust. Part A is graded in five categories:
 - Test different `SEED` (**3pts**)
 - Test different `MULT_LAT` (Multiplier Latency) (**3pts**)
 - Test different `M` and `N` (**3pts**)
@@ -54,9 +54,8 @@ You design should be robust and the grading rubrics as follows:
 
 Single test example: `make systolic_array ROWS=2 COLS=4 K=4 NUM_TESTS=10 SEED=1`, then `cat results.log | grep PASSED`
 
-In your report, explain what your In-Class 2 (NxN) design needed in order to support MxN arrays, and what you changed, if anything (see [Report](#report-15-pts)).
-
 **Hints**
+- **Part A may not need any code changes.** If your In-Class 2 design uses `ROWS` and `COLS` correctly everywhere, it may already work for MxN arrays. Run `./run.sh` first. Either way, your report must explain how your In-Class 2 design handles MxN arrays, and what you changed, if anything (see [Report](#report-15-pts)).
 - Square arrays hide `ROWS`/`COLS` mix-ups. Check every place you use either one: wire array sizes, loop bounds, delays, and `OWN_DELAY`.
 - Delays that depend on the number of columns should use `COLS`, never `ROWS`.
 - Start with small rectangular cases like 2x4 (`K` = 4) and 4x2 (`K` = 2). They are quick to run and catch most mistakes.
@@ -64,7 +63,7 @@ In your report, explain what your In-Class 2 (NxN) design needed in order to sup
 
 ### Part B: General-sized Systolic Arrays (15 pts)
 
-In Part A, we worked with systolic arrays with size restricted to `N`=`K`. Now, let's explore what happens when `N` and `K` are not equal. Try experimenting with different parameters in the systolic array implementation (you may also adjust the number of trials in the testing script). You'll likely observe that the systolic array fails certain test cases.
+In Part A, we worked with systolic arrays with size restricted to `N`=`K`. Now, let's explore what happens when `N` and `K` are not equal. Try `./run_nk.sh`, or single tests with `N` != `K` (examples below). You'll likely see the In-Class 2 design fail some of them.
 
 **Part B.1 (graded in the Report)**: Debug General-sized Array Failures
 
@@ -81,13 +80,12 @@ In your report, describe what you changed in your design to support `N` != `K`.
 
 
 **Testing `N` < `K`: use `make systolic_array_nk`**
-- Why? (First read the last hint below) In these cases, a single MAC's own results won't be immediately ready after it bypass results from the previous MACs. Therefore, MACs will output zero in between.
-- These gaps are expected. The normal checker (`make systolic_array`) rejects any gap, so it reports FAILED even for a correct design.
-- `make systolic_array_nk` takes the same parameters, but checks with [data_gen_nk.py](../code/data_gen_nk.py). It removes the gaps from each row's output, then compares the values in order.
+- For `N` < `K`, even a correct design outputs zeros (gaps) between results in each row. Think about why these gaps appear; the hints below can help, and it is part of what you explain in your report.
+- The normal checker (`make systolic_array`) rejects any gap, so it reports FAILED even for a correct `N` < `K` design.
+- `make systolic_array_nk` takes the same settings but checks with [data_gen_nk.py](../code/data_gen_nk.py). It removes all zeros from each row's output (and from the expected values), then checks that the remaining values match, in order.
 - Example: `make systolic_array_nk ROWS=4 COLS=2 K=4 NUM_TESTS=100`, then `cat results.log | grep PASSED`
-- For `N` >= `K`, keep using `make systolic_array`. Gaps there are real errors.
-- What if `N` > `K`?
-
+- For `N` >= `K`, use `make systolic_array`. Gaps there are real errors.
+- `run_nk.sh` already uses the right checker for each test.
 
 **Hints**
 - Consider the timing from a single MAC unit's perspective:
@@ -98,7 +96,7 @@ In your report, describe what you changed in your design to support `N` != `K`.
     - Could the synchronous FIFO ([synchronus_fifo.v](../code/synchronus_fifo.v), provided; the module is named `synchronous_fifo`) be useful here? Note that its `rst_n` port resets the FIFO when it is **high**, despite the name, so connect it to `rst` directly.
 
 - **You can adjust the depth of the synchronous FIFO according to the actual difference between `N` and `K` or simply use a large depth, e.g., 128.**
-    - Why?: What if the FIFO is full or empty? We should not be reading or writing to the FIFO, which is like some stall of the computation. However, at current lab, we have not included the implementation to propagate the stall through the systolic array. The next lab will cover this part.
+    - Why a large depth? The array cannot stall in this lab, so the FIFO must never fill up; a full FIFO loses results.
 
 
 Grading command (your Part B code must still pass Part A). `run_nk.sh` runs 2 `N` > `K` tests and 2 `N` < `K` tests, each worth **3.75pts**:
@@ -114,7 +112,7 @@ Single test examples, then `cat results.log | grep PASSED`:
 
 Wrap your systolic array in an AXI-Stream (AXIS) interface. This is the same valid/ready handshake you used for the AXIS FIFO in Lab 4.
 
-In the above testing, we assume the input data is always valid for the systolic array to consume, and the tester's receiver is always ready to receive the output data from the systolic array. However, in practice, the communication between the systolic array and the tester is dynamic and backpressure-sensitive. It's possible that the tester's receiver is not ready to receive the output data from the systolic array, or the input data is not valid for the systolic array to consume. Therefore, whenever this happens, the systolic array should stall the input or output data to avoid data corruption.
+In the above testing, we assume the input data is always valid for the systolic array to consume, and the tester's receiver is always ready to receive the output data from the systolic array. However, in practice, the communication between the systolic array and the tester is dynamic and backpressure-sensitive. It's possible that the tester's receiver is not ready to receive the output data from the systolic array, or the input data is not valid for the systolic array to consume. Therefore, your wrapper must move data only when `vld && rdy`, and must never lose or corrupt a result when the other side is not ready.
 
 #### Files for Part C
 
@@ -191,10 +189,10 @@ Your design must:
 #### Testing
 
 Testing happens in two stages:
-- **No stalls**: `test_axis.cpp` holds `row_data_in_vld`, `col_data_in_vld`, and `row_data_out_rdy` high every cycle.
+- **No stalls**: `test_axis.cpp` holds `row_data_out_rdy` high every cycle, and keeps `row_data_in_vld` and `col_data_in_vld` high until the input data runs out.
 - **Random stalls**: `test_axis_random_drop.cpp` randomly holds `row_data_out_rdy` low. Your design must stall instead of corrupting the stream.
 
-`run_axis.sh` includes `N` != `K` cases, so your Part B design must work before Part C can fully pass. A full run takes about 15 to 20 minutes per tester, so debug with single test cases first.
+`run_axis.sh` includes `N` != `K` cases, so your Part B design must work before Part C can fully pass. A full run takes about 10 to 20 minutes per tester, so debug with single test cases first.
 
 Grading commands:
 - `chmod +x run_axis.sh && ./run_axis.sh test_axis.cpp 100` (**5pts**)
@@ -202,12 +200,14 @@ Grading commands:
 - `chmod +x run_axis.sh && ./run_axis.sh test_axis_random_drop.cpp 100` (**10pts**)
     - Test different `SEED`, `MULT_LAT`, `M` and `N`, `NUM`, and combined parameter sweep (**2pts each**)
 
-To run a single test case (use `TEST_FILE=test_axis.cpp` for the no-stall tester):
+To run a single test case, for example a 4x4 array with `K` = 4 on the random-stall tester:
 
 ```
-make systolic_array_axis ROWS=${M} COLS=${N} K=${K} NUM_TESTS=${NUM} MULT_LAT=${LAT} TEST_FILE=test_axis_random_drop.cpp
+make systolic_array_axis ROWS=4 COLS=4 K=4 NUM_TESTS=10 MULT_LAT=3 TEST_FILE=test_axis_random_drop.cpp
 cat results.log | grep PASSED
 ```
+
+Change the numbers to try other sizes, and use `TEST_FILE=test_axis.cpp` for the no-stall tester.
 
 **Hints**
 - A matrix multiplication step only happens when both the row and column beats are available. What should each `rdy` be?
@@ -221,7 +221,7 @@ cat results.log | grep PASSED
 
 Submit one PDF report with the four sections below.
 
-1. **Part A: From NxN to MxN (4pts)**: What had to be true about your In-Class 2 (NxN) design for it to work on MxN arrays with `N` = `K`? What did you change, if anything, and why?
+1. **Part A: From NxN to MxN (4pts)**: What had to be true about your In-Class 2 (NxN) design for it to work on MxN arrays with `N` = `K`? What did you change, if anything, and why? If you changed nothing, explain why your In-Class 2 design already works for MxN arrays.
 2. **Part B: Non-square arrays (4pts)**: Why does your `N` = `K` design fail when `N` != `K`? What did you change in your design to support `N` != `K`?
 3. **Part C: FIFO depth (4pts)**: Why can a deep enough FIFO pass the random-stall tests without stalling the array at all? Describe a stall pattern that would make a too-small FIFO lose data.
 4. **AI usage (3pts)**: How did you use AI tools in this lab? Include:
@@ -233,9 +233,10 @@ Submit one PDF report with the four sections below.
 
 ## Submission
 
-+ Provide a zip file containing your source code. Generate the submission.zip file using the command `make submit`. Avoid manual zip file creation to prevent any issues with the autograding script, which could lead to a 30% score deduction.
-+ Submit your report as one PDF, separately from the zip. `make submit` only packages `.v` and `.vh` files.
-* Late submission policy: 2 hours grace period
+Submit two things:
+
+1. **Your code:** from inside the `code/` folder, run `make submit`. This creates `submission.zip` with your `.v` and `.vh` files. Upload `submission.zip`.
+2. **Your report:** one PDF, submitted separately from the zip (`make submit` does not include it).
 
 
 ## Rules and Potential Violations

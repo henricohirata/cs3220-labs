@@ -26,7 +26,8 @@ Run every command from inside `code/`:
 cd code
 source init.sh
 chmod +x *.sh
-./run_inclass2.sh
+./run_inclass1.sh    # checks the starting point: expect 5 / 5
+./run_inclass2.sh    # In-Class 2 tests: expect 0 / 12 until you finish In-Class 2
 ```
 
 ## Files in `code/`
