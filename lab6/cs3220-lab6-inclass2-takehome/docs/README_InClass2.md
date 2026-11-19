@@ -49,6 +49,8 @@ This means two changes:
 
 Test command: `chmod +x run_inclass2.sh && ./run_inclass2.sh`
 
+**Run time:** a full `run_inclass2.sh` run takes about 3 minutes (2 to 4 minutes, depending on the machine). A single test with `make systolic_array ...` takes about 10 seconds, so debug with single tests first and run the full script once they pass.
+
 | Group | ROWS x COLS | K | MULT_LAT | NUM | SEED | Tests |
 |---|---|---|---|---|---|---|
 | Seeds | 4 x 4 | 4 | 3 | 10 | 1 to 5 | 5 |
@@ -70,7 +72,7 @@ cat results.log | grep PASSED
 ## Hints
 Generate block:
 - Compare the PE(0,1) and PE(1,1) instances in [systolic_array.v](../code/systolic_array.v). Which connections are the same pattern with a different index? That pattern becomes one instance inside two nested loops (`genvar r` over `ROWS`, `genvar c` over `COLS`).
-- Replace the named wires (`row_00_01`, ...) with 2-D wire arrays, for example `wire [IN_WIDTH-1:0] row_wire [0:ROWS-1][0:COLS];`. Let `row_wire[r][c]` feed PE(r,c) and `row_wire[r][c+1]` be its output. Making each array one entry larger than the grid gives the edge MACs a slot to read from or write to.
+- Replace the named wires (`row_00_01`, ...) with 2-D wire arrays, for example `wire [IN_WIDTH-1:0] row_w [0:ROWS-1][0:COLS];`. Let `row_w[r][c]` feed PE(r,c) and `row_w[r][c+1]` be its output. Making each array one entry larger than the grid gives the edge MACs a slot to read from or write to.
 - Handle the edges with separate loops or with `if` inside the generate block: the top row reads from `ctrl` and `col_data_in`, the left column reads from `row_data_in`, and the right column has no neighbor to bypass from.
 - Slice packed buses by index, for example `row_data_in[IN_WIDTH*r +: IN_WIDTH]`.
 - Name your generate blocks (`begin : g_row`) so the MACs are easy to find in the waveform.
@@ -133,7 +135,7 @@ Out of the above files, you will need to work on [systolic_array.v](../code/syst
 
 Finish all the TODOs in the code; or you can start from scratch if you prefer. The only major requirement is that you are not allowed to change the interface of the systolic array [systolic_array.v](../code/systolic_array.v). Although we provide the interfaces for [MAC.v](../code/MAC.v) and [ctrl.v](../code/ctrl.v), you are free to change them as you see fit.
 
-Todos in the skeleton codes provided are intended to guide you through the implementation process and provide some hints. However, you are free to modify the code as you see fit.
+The TODOs in the skeleton code are intended to guide you through the implementation and provide some hints. However, you are free to modify the code as you see fit.
 
 **Note:** The Makefile only compiles the files listed above. If you write a helper module (for example, a delay line), put it inside [MAC.v](../code/MAC.v) or [ctrl.v](../code/ctrl.v). Do not create a new `.v` file for it.
 
@@ -173,12 +175,14 @@ So A is M × K, B is K × N, and C is M × N.
 
 Example: `ROWS=2 COLS=4 K=2` means A is 2×2, B is 2×4, C is 2×4, on a 2×4 array.
 
-Test script, a `NUM` number of random tests of A (`M`x`K`) * B (`K`x`N`) matrix multiplications will be performed, on systolic array with size `M`x`N`. You can run the test script by:
+Each test runs `NUM` random matrix multiplications of A (`M`x`K`) * B (`K`x`N`) on an `M`x`N` systolic array. To run one test, for example a 4x4 array with `K` = 4 and 10 matrix multiplications:
 
 ```
-make systolic_array ROWS=${M} COLS=${N} K=${K} NUM_TESTS=${NUM}
+make systolic_array ROWS=4 COLS=4 K=4 NUM_TESTS=10
 cat results.log | grep PASSED
 ```
+
+Change the numbers to try other sizes: `ROWS` = M, `COLS` = N, `K` = K, `NUM_TESTS` = NUM. You can also set `SEED` and `MULT_LAT`.
 
 How a test runs (`make systolic_array`):
 1. `data_gen.py` makes random A and B, pre-skews them, and writes the expected C.
@@ -230,7 +234,7 @@ The in-class slides walk through a 2x2 example cycle by cycle. In short:
 - The checker finds the first expected output row, then the last one, and compares everything in between. Leading zeros before your first result are fine, but a bubble or wrong value between results fails the test.
 - Name your generate blocks so internal MAC signals are easy to find in the waveform.
 - The run scripts run their tests one after another, so `trace.vcd` and the `.bin` files are from the last test only. To debug a specific failing test, rerun it on its own with `make`.
-- Always name a target (`make systolic_array`). Plain `make` does not work.
+- Always name a target (`make systolic_array`). Plain `make` only lists the available targets.
 
 Check your design in this order, in `trace.vcd`:
 1. **Pass-through:** PE(0,1) sees PE(0,0)'s row data 1 cycle later; PE(1,0) sees its column data and control signals 1 cycle later.
