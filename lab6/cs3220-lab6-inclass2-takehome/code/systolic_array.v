@@ -106,113 +106,54 @@ module systolic_array #(
     //     the 4 hand-written instances did.
     // ------------------------------------------------------------------
 
-    // Wires between MACs (provided)
-    // Naming: <signal>_<from PE>_<to PE>, e.g. row_00_01 is row data from PE(0,0) to PE(0,1)
-    wire [IN_WIDTH-1:0]  row_00_01, row_10_11;        // row data, left -> right
-    wire [IN_WIDTH-1:0]  col_00_10, col_01_11;        // column data, top -> bottom
-    wire                 rst_00_10, rst_01_11;        // rst_accumulator, top -> bottom
-    wire                 so_00_10,  so_01_11;         // stream_out_rdy, top -> bottom
-    wire [OUT_WIDTH-1:0] psum_00, psum_01;            // psum_out of row 0 MACs
-    wire [OUT_WIDTH-1:0] psum_10, psum_11;            // psum_out of row 1 MACs
 
-    //TODO [In-Class 2]: OWN_DELAY for each column, as a formula in COLS and the column index
-    // - The values below are from In-Class 1 and only work for COLS = 2.
-    // - All columns get the same stream_out_rdy pulse from ctrl.v, timed for the LAST column.
-    // - psum[0] holds the accumulator from 1 cycle ago, psum[1] from 2 cycles ago, and so on.
-    //   OWN_DELAY picks which one the MAC sends.
-    //
-    // Suggestions [In-Class 2]:
-    //   • In an array with COLS columns, how many cycles before the last column does column c
-    //     finish? Write OWN_DELAY in terms of COLS and c.
-    //   • Check: with COLS = 2 your formula must give 1 for c = 0 and 0 for c = 1.
-    //   • Check in trace.vcd: on the cycle each MAC's stream_out_rdy_in is high, psum[OWN_DELAY]
-    //     should hold that MAC's finished sum, not a partial sum of the next matmul.
-    localparam OWN_DELAY_COL0 = 1;
-    localparam OWN_DELAY_COL1 = 0;
+    wire [IN_WIDTH-1:0] row_w [0:ROWS-1][0:COLS];
+    wire [IN_WIDTH-1:0] col_w [0:ROWS][0:COLS-1];
+    wire rst_w [0:ROWS][0:COLS-1];
+    wire so_w [0:ROWS][0:COLS-1];
+    wire [OUT_WIDTH-1:0] psum_w [0:ROWS-1][0:COLS];
 
+    genvar r, c;
 
-    // PE(0,0): worked example, fully connected (provided)
-    mac #(
-        .IN_WIDTH(IN_WIDTH), .IN_FRAC(IN_FRAC), .OUT_WIDTH(OUT_WIDTH), .OUT_FRAC(OUT_FRAC),
-        .MULT_LAT(MULT_LAT), .ADD_LAT(ACC_LAT), .K(K), .ROWS(ROWS), .COLS(COLS),
-        .ROWS_IDX(0), .COLS_IDX(0), .OWN_DELAY(OWN_DELAY_COL0)
-    ) mac_00 (
-        .clk(clk),
-        .rst(rst),
-        .rst_accumulator_in(control_rst_accumulator_rdy[0]),   // top row: from ctrl, column 0
-        .stream_out_rdy_in(control_stream_out_rdy[0]),         // top row: from ctrl, column 0
-        .row_data_in(row_data_in[IN_WIDTH*0 +: IN_WIDTH]),     // left column: from row_data_in, row 0
-        .col_data_in(col_data_in[IN_WIDTH*0 +: IN_WIDTH]),     // top row: from col_data_in, column 0
-        .bypass_data_in(psum_01),                              // results from the MAC to its right
-        .row_data_out(row_00_01),                              // to PE(0,1)
-        .col_data_out(col_00_10),                              // to PE(1,0)
-        .rst_accumulator_out(rst_00_10),                       // to PE(1,0)
-        .stream_out_rdy_out(so_00_10),                         // to PE(1,0)
-        .psum_out(psum_00)                                     // leaves the array on row_data_out, row 0
-    );
+    generate
+        for (c = 0; c < COLS; c = c + 1) begin : g_top
+            assign col_w[0][c] = col_data_in[IN_WIDTH*c +: IN_WIDTH];
+            assign rst_w[0][c] = control_rst_accumulator_rdy[c];
+            assign so_w[0][c] = control_stream_out_rdy[c];
+        end
+    endgenerate
 
-    // PE(0,1): top row, right column (provided)
-    mac #(
-        .IN_WIDTH(IN_WIDTH), .IN_FRAC(IN_FRAC), .OUT_WIDTH(OUT_WIDTH), .OUT_FRAC(OUT_FRAC),
-        .MULT_LAT(MULT_LAT), .ADD_LAT(ACC_LAT), .K(K), .ROWS(ROWS), .COLS(COLS),
-        .ROWS_IDX(0), .COLS_IDX(1), .OWN_DELAY(OWN_DELAY_COL1)
-    ) mac_01 (
-        .clk(clk),
-        .rst(rst),
-        .rst_accumulator_in(control_rst_accumulator_rdy[1]),
-        .stream_out_rdy_in(control_stream_out_rdy[1]),
-        .row_data_in(row_00_01),
-        .col_data_in(col_data_in[IN_WIDTH*1 +: IN_WIDTH]),
-        .bypass_data_in('0),
-        .row_data_out(),
-        .col_data_out(col_01_11),
-        .rst_accumulator_out(rst_01_11),
-        .stream_out_rdy_out(so_01_11),
-        .psum_out(psum_01)
-    );
+    generate
+        for (r = 0; r < ROWS; r = r + 1) begin : g_edge
+            assign row_w[r][0]    = row_data_in[IN_WIDTH*r +: IN_WIDTH];
+            assign psum_w[r][COLS] = '0;
+            assign row_data_out[OUT_WIDTH*r +: OUT_WIDTH] = psum_w[r][0];
+        end
+    endgenerate
 
-    // PE(1,0): bottom row, left column (provided)
-    mac #(
-        .IN_WIDTH(IN_WIDTH), .IN_FRAC(IN_FRAC), .OUT_WIDTH(OUT_WIDTH), .OUT_FRAC(OUT_FRAC),
-        .MULT_LAT(MULT_LAT), .ADD_LAT(ACC_LAT), .K(K), .ROWS(ROWS), .COLS(COLS),
-        .ROWS_IDX(1), .COLS_IDX(0), .OWN_DELAY(OWN_DELAY_COL0)
-    ) mac_10 (
-        .clk(clk),
-        .rst(rst),
-        .rst_accumulator_in(rst_00_10),
-        .stream_out_rdy_in(so_00_10),
-        .row_data_in(row_data_in[IN_WIDTH*1 +: IN_WIDTH]),
-        .col_data_in(col_00_10),
-        .bypass_data_in(psum_11),
-        .row_data_out(row_10_11),
-        .col_data_out(),
-        .rst_accumulator_out(),
-        .stream_out_rdy_out(),
-        .psum_out(psum_10)
-    );
-
-    // PE(1,1): bottom row, right column (provided)
-    mac #(
-        .IN_WIDTH(IN_WIDTH), .IN_FRAC(IN_FRAC), .OUT_WIDTH(OUT_WIDTH), .OUT_FRAC(OUT_FRAC),
-        .MULT_LAT(MULT_LAT), .ADD_LAT(ACC_LAT), .K(K), .ROWS(ROWS), .COLS(COLS),
-        .ROWS_IDX(1), .COLS_IDX(1), .OWN_DELAY(OWN_DELAY_COL1)
-    ) mac_11 (
-        .clk(clk),
-        .rst(rst),
-        .rst_accumulator_in(rst_01_11),
-        .stream_out_rdy_in(so_01_11),
-        .row_data_in(row_10_11),
-        .col_data_in(col_01_11),
-        .bypass_data_in('0),
-        .row_data_out(),
-        .col_data_out(),
-        .rst_accumulator_out(),
-        .stream_out_rdy_out(),
-        .psum_out(psum_11)
-    );
-
-    // Array outputs: each row leaves the array from its column 0 MAC (provided)
-    assign row_data_out[OUT_WIDTH*0 +: OUT_WIDTH] = psum_00;   // row 0
-    assign row_data_out[OUT_WIDTH*1 +: OUT_WIDTH] = psum_10;   // row 1
+    generate
+        for (r = 0; r < ROWS; r = r + 1) begin : g_row
+            for (c = 0; c < COLS; c = c + 1) begin : g_col
+                mac #(
+                    .IN_WIDTH(IN_WIDTH), .IN_FRAC(IN_FRAC), .OUT_WIDTH(OUT_WIDTH), .OUT_FRAC(OUT_FRAC),
+                    .MULT_LAT(MULT_LAT), .ADD_LAT(ACC_LAT), .K(K), .ROWS(ROWS), .COLS(COLS),
+                    .ROWS_IDX(r), .COLS_IDX(c), .OWN_DELAY(COLS - 1 - c)
+                ) mac_inst (
+                    .clk(clk),
+                    .rst(rst),
+                    .rst_accumulator_in(rst_w[r][c]),
+                    .stream_out_rdy_in(so_w[r][c]),
+                    .row_data_in(row_w[r][c]),
+                    .col_data_in(col_w[r][c]),
+                    .bypass_data_in(psum_w[r][c+1]),
+                    .row_data_out(row_w[r][c+1]),
+                    .col_data_out(col_w[r+1][c]),
+                    .rst_accumulator_out(rst_w[r+1][c]),
+                    .stream_out_rdy_out(so_w[r+1][c]),
+                    .psum_out(psum_w[r][c])
+                );
+            end
+        end
+    endgenerate
 
 endmodule

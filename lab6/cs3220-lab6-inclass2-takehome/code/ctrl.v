@@ -27,7 +27,7 @@ module ctrl #(
     //   • Write the same count in terms of MULT_LAT instead of a fixed number.
     //   • Check: at MULT_LAT = 3 your formula must give 4, and run_inclass2.sh sweeps MULT_LAT
     //     from 2 to 6.
-    localparam RST_DELAY = 4;          // TODO [In-Class 2]: replace 4 with a formula (must be >= 1)
+    localparam RST_DELAY = MULT_LAT + 1;
 
     //TODO [In-Class 2]: Replace the fixed number in STREAM_OUT_DELAY with a formula in MULT_LAT, ACC_LAT, and COLS.
     // - The value below is from In-Class 1 and only works for MULT_LAT = 3 and COLS = 2.
@@ -45,7 +45,7 @@ module ctrl #(
     //   • Check: at MULT_LAT = 3 and COLS = 2 your formula must give 6.
     //   • Check in trace.vcd: the last column's stream_out_rdy_in should be high on the cycle right
     //     after its adder_out shows the finished sum (so psum[0] holds it).
-    localparam STREAM_OUT_DELAY = 6;   // TODO [In-Class 2]: replace 6 with a formula (must be >= 1)
+    localparam STREAM_OUT_DELAY = (COLS - 1) + RST_DELAY + ACC_LAT;
 
 
     // ------------------------------------------------------------------
